@@ -367,6 +367,8 @@ const COLLECTIONS = {
 
 const PROFIT_TIERS = { '1.5x': 1.5, '2x': 2.0, '4x': 4.0 };
 const BASE = 'https://deep-index.moralis.io/api/v2.2';
+const entryPriceCache = new Map();
+const ENTRY_TTL_MS = 60 * 1000; // 60s cache
 
 let state = {};
 let activeTab = Object.keys(COLLECTIONS)[0];
@@ -430,18 +432,50 @@ async function fetchHoldings(wallet, contract) {
 }
 
 async function fetchEntryPrice(wallet, contract, tokenId) {
+  const key = `${wallet}-${contract}-${tokenId}`;
+  const now = Date.now();
+
+  // 1. CHECK CACHE FIRST
+  const cached = entryPriceCache.get(key);
+  if (cached && (now - cached.timestamp < ENTRY_TTL_MS)) {
+    return cached.data;
+  }
   try {
     const d = await api(`${BASE}/nft/${contract}/${tokenId}/transfers`, {chain:'eth', limit:50});
     const transfers = (d.result||[]).sort((a,b)=>b.block_timestamp.localeCompare(a.block_timestamp));
     const wl = wallet.toLowerCase();
-    for (const t of transfers) {
-      if (t.to_address?.toLowerCase() !== wl) continue;
-      const val = parseInt(t.value||'0') / 1e18;
-      if (val > 0) return { price: val, date: t.block_timestamp?.slice(0,10), method: 'direct' };
-      const manual = getManualPrice();
-      if (manual) return { price: manual, date: t.block_timestamp?.slice(0,10), method: 'manual' };
-      return { price: null, date: t.block_timestamp?.slice(0,10), method: 'offer — set manual price' };
-    }
+    const manual = getManualPrice();
+
+for (const t of transfers) {
+  if (t.to_address?.toLowerCase() !== wl) continue;
+
+  const val = parseFloat(t.value) / 1e18;
+
+  // real on-chain payment
+  if (val > 0) {
+    return {
+      price: val,
+      date: t.block_timestamp?.slice(0,10),
+      method: 'direct'
+    };
+  }
+
+  // fallback: manual override
+  if (manual) {
+    return {
+      price: manual,
+      date: t.block_timestamp?.slice(0,10),
+      method: 'manual'
+    };
+  }
+
+  // nothing found yet
+  return {
+    price: null,
+    date: t.block_timestamp?.slice(0,10),
+    method: 'offer — set manual price'
+  };
+}
     return { price: null, date: null, method: 'unknown' };
   } catch { return { price: null, date: null, method: 'error' }; }
 }
@@ -505,8 +539,11 @@ function buildAlerts(floor, holdings, score, stopLossPct) {
   }
   return alerts;
 }
+  const entryCache = {}; // TOP OF FILE
 
 async function fetchCollection(name, contract) {
+   const { contract, tokenId } = entry;
+  const key = `${contract}-${tokenId}`;
   const wallet = getWallet();
   const [floor, stats, transfers, tokenIds] = await Promise.all([
     fetchFloor(contract),
@@ -514,7 +551,9 @@ async function fetchCollection(name, contract) {
     fetchTransfers(contract),
     fetchHoldings(wallet, contract)
   ]);
-
+  
+ if (entryCache[key]) return entryCache[key];
+  
   const vol24h = parseFloat(stats.volume_24h || 0);
   const vol7d  = parseFloat(stats.volume_7d || 0);
   const avgDay = vol7d / 7 || 0;
@@ -528,11 +567,11 @@ async function fetchCollection(name, contract) {
   const buyers = new Set(transfers.map(t => t.to_address).filter(Boolean));
   const supply = parseInt(stats.total_tokens || 1);
   const listings = parseInt(stats.total_tokens_with_price || 0);  
-const collectionTransfers =
-  await fetchCollectionTransfers(contract);
-const acceleration =
-  salesAcceleration(collectionTransfers);
-const d = {
+const collectionTransfers = await fetchCollectionTransfers(contract);
+  const acceleration =  salesAcceleration(collectionTransfers);
+
+
+  const d = {
   name, contract, floor,
   vol24h: vol24h.toFixed(4),
   volumeRatio: avgDay ? parseFloat((vol24h / avgDay).toFixed(2)) : 0,
@@ -543,6 +582,9 @@ const d = {
   holdings,
   acceleration,
 };
+  
+  entryCache[key] = d;
+return d;
 
   const { score, verdict, reasons } = scoreSignal(d);
   const alerts = buildAlerts(floor, holdings, score, getStopLoss());
