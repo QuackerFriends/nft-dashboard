@@ -141,12 +141,12 @@ body::after {
   color: var(--muted);
 }
 .status-dot {
-  width: 3px; height: 3px; border-radius: 50%;
+  width: 7px; height: 7px; border-radius: 50%;
   background: var(--muted);
   flex-shrink: 0;
 }
 .status-dot.live { background: var(--green); box-shadow: 0 0 8px var(--green); animation: pulse 2s infinite; }
-.status-dot.loading { background: var(--amber); box-shadow: 0 0 8px var(--amber); animation: pulse .8s infinite; }
+.status-dot.loading { background: var(--amber); box-shadow: 0 0 3px var(--amber); animation: pulse .8s infinite; }
 .status-dot.error { background: var(--red); box-shadow: 0 0 8px var(--red); }
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
 
