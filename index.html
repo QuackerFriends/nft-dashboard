@@ -528,8 +528,10 @@ async function fetchCollection(name, contract) {
   const buyers = new Set(transfers.map(t => t.to_address).filter(Boolean));
   const supply = parseInt(stats.total_tokens || 1);
   const listings = parseInt(stats.total_tokens_with_price || 0);  
-const transfers =  await fetchCollectionTransfers(contract);
-const acceleration = salesAcceleration(transfers);
+const collectionTransfers =
+  await fetchCollectionTransfers(contract);
+const acceleration =
+  salesAcceleration(collectionTransfers);
 const d = {
   name, contract, floor,
   vol24h: vol24h.toFixed(4),
