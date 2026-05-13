@@ -630,20 +630,40 @@ async function fetchHoldings(wallet, contract) {
   }
 }
 
-/* Wallet transfer history filtered to this contract — entry price source */
+/* Wallet transfer history filtered to this contract — entry price source.
+   Moralis accepts contract_addresses[] bracket notation.
+   We fetch unfiltered and filter client-side as a reliable fallback. */
 async function fetchWalletTransfers(wallet, contract) {
   const url = `${BASE}/${wallet}/nft/transfers`;
+  const contractLower = contract.toLowerCase();
+
+  /* Attempt 1: filtered by contract (saves CUs if it works) */
   try {
-    /* contract_addresses[] is the correct param name per Moralis Feb 2024 docs */
     const d = await apiGet(url, {
-      chain: 'eth',
-      'contract_addresses[]': contract,
-      limit: 100, format: 'decimal'
+      chain: 'eth', 'contract_addresses[]': contract, limit: 500
     });
-    logApi('wallet-transfers', 'ok', (d.result||[]).length + ' tx');
-    return d.result || [];
+    const results = d.result || [];
+    if (results.length > 0) {
+      logApi('wallet-transfers', 'ok', results.length + ' tx (filtered)');
+      return results;
+    }
+    /* 0 results filtered — fall through to unfiltered */
+    logApi('wallet-transfers', 'zero-filtered', 'retrying unfiltered');
   } catch(e) {
-    logApi('wallet-transfers', 'fail:' + e.message, '');
+    logApi('wallet-transfers', 'fail:' + e.message, 'retrying unfiltered');
+  }
+
+  /* Attempt 2: fetch all wallet NFT transfers, filter client-side */
+  try {
+    const d = await apiGet(url, { chain: 'eth', limit: 500 });
+    const all = d.result || [];
+    const filtered = all.filter(t =>
+      t.token_address?.toLowerCase() === contractLower
+    );
+    logApi('wallet-transfers-all', 'ok', filtered.length + '/' + all.length + ' matched contract');
+    return filtered;
+  } catch(e) {
+    logApi('wallet-transfers-all', 'fail:' + e.message, '');
     return [];
   }
 }
@@ -876,70 +896,103 @@ function buildAlerts(floor, holdings, score, verdict, stopLossPct, trend) {
     }
   }
 
-  /* Per-token position alerts */
-  let _floorAlertShown = false;
-  for (const h of holdings) {
-    const entry = h.price;
-    if (!entry) {
-      alerts.push({
-        type: 'PRICE MISSING',
-        text: `Token #${h.tokenId} — enter a manual price in config to enable exit and profit alerts.`,
-        level: 'amber', time: now, icon: '🔧'
-      });
-      continue;
-    }
+  /* Per-token position alerts — CONSOLIDATED to avoid per-token spam */
+  const withPrice    = holdings.filter(h => h.price);
+  const noPrice      = holdings.filter(h => !h.price);
 
-    const mult   = floor / entry;
-    const pnlPct = (mult - 1) * 100;
-    const pnlEth = (floor - entry).toFixed(4);
+  /* 1. Price missing — single summary */
+  if (noPrice.length > 0) {
+    alerts.push({
+      type: 'PRICE MISSING',
+      text: noPrice.length + ' token' + (noPrice.length > 1 ? 's' : '') + ' ('
+        + noPrice.map(h => '#' + h.tokenId).join(', ')
+        + ') have no entry price. Enter a manual price in config to enable exit alerts.',
+      level: 'amber', time: now, icon: '🔧'
+    });
+  }
 
-    /* Stop-loss check — only fire if floor data is actually valid (> 0) */
-    if (floor > 0 && floor <= entry * (1 - stopLossPct / 100)) {
-      alerts.push({
-        type: 'STOP-LOSS HIT',
-        text: 'Token #' + h.tokenId + ' (entry ' + entry.toFixed(4) + ' ETH) — floor is ' + Math.abs(pnlPct).toFixed(0) + '% below your entry (' + pnlEth + ' ETH). Stop-loss of ' + stopLossPct + '% breached. Consider cutting losses.',
-        level: 'red', time: now, icon: '🛑'
-      });
-    } else if (floor <= 0 && entry > 0) {
-      /* Only show once (first token) */
-      if (!_floorAlertShown) { _floorAlertShown = true;
-        alerts.push({
-          type: 'FLOOR UNAVAILABLE',
-          text: 'Floor price could not be fetched for this collection. All P&L calculations are paused. Check the API debug log and try refreshing.',
-          level: 'amber', time: now, icon: '⚠️'
-        });
+  /* 2. Floor unavailable — single alert if floor is 0 */
+  if (floor <= 0 && withPrice.length > 0) {
+    alerts.push({
+      type: 'FLOOR UNAVAILABLE',
+      text: 'Floor price could not be fetched. All P&L is paused. Check the API debug log.',
+      level: 'amber', time: now, icon: '⚠️'
+    });
+  }
+
+  /* Only do P&L alerts if floor is valid */
+  if (floor > 0 && withPrice.length > 0) {
+    /* Bucket tokens by situation */
+    const stopLossTokens   = [];
+    const profitTokens     = [];
+    const tierHitsByTier   = {};
+    const nearTiersByTier  = {};
+
+    for (const h of withPrice) {
+      const pnlPct = (floor / h.price - 1) * 100;
+      const pnlEth = floor - h.price;
+
+      if (floor <= h.price * (1 - stopLossPct / 100)) {
+        stopLossTokens.push({ h, pnlPct, pnlEth });
+      } else if (score <= -2 && pnlPct > 0) {
+        profitTokens.push({ h, pnlPct, pnlEth });
+      }
+
+      for (const [tierName, multiplier] of Object.entries(PROFIT_TIERS)) {
+        const target = h.price * multiplier;
+        const gap    = target - floor;
+        if (floor >= target) {
+          if (!tierHitsByTier[tierName]) tierHitsByTier[tierName] = [];
+          tierHitsByTier[tierName].push({ h, pnlPct });
+        } else if (gap < h.price * 0.1) {
+          if (!nearTiersByTier[tierName]) nearTiersByTier[tierName] = [];
+          nearTiersByTier[tierName].push({ h, gap, pnlPct });
+        }
       }
     }
 
-    /* Signal deterioration while in profit — urge action (only when floor is valid) */
-    if (floor > 0 && score <= -2 && pnlPct > 0) {
+    /* 3. Stop-loss — one consolidated alert */
+    if (stopLossTokens.length > 0) {
+      const avgPnl = stopLossTokens.reduce((s, x) => s + x.pnlPct, 0) / stopLossTokens.length;
+      const ids    = stopLossTokens.map(x => '#' + x.h.tokenId).join(', ');
+      const totalEthLoss = stopLossTokens.reduce((s, x) => s + x.pnlEth, 0).toFixed(4);
       alerts.push({
-        type: 'LOCK PROFIT',
-        text: `Token #${h.tokenId} — you are +${pnlPct.toFixed(0)}% (+${pnlEth} ETH) but signal is bearish (score ${score}). Consider listing to lock profit before floor drops.`,
+        type: 'STOP-LOSS HIT — ' + stopLossTokens.length + ' TOKEN' + (stopLossTokens.length > 1 ? 'S' : ''),
+        text: ids + ' — all ' + Math.abs(avgPnl).toFixed(0) + '% below entry (avg). Total unrealised loss: ' + totalEthLoss + ' ETH. Floor is ' + floor.toFixed(5) + ' ETH. Consider cutting losses.',
+        level: 'red', time: now, icon: '🛑'
+      });
+    }
+
+    /* 4. Lock profit — one consolidated alert */
+    if (profitTokens.length > 0) {
+      const best = profitTokens.reduce((a, b) => a.pnlPct > b.pnlPct ? a : b);
+      const ids  = profitTokens.map(x => '#' + x.h.tokenId).join(', ');
+      alerts.push({
+        type: 'LOCK PROFIT — ' + profitTokens.length + ' TOKEN' + (profitTokens.length > 1 ? 'S' : ''),
+        text: ids + ' in profit but signal is bearish (score ' + score + '). Best: +' + best.pnlPct.toFixed(0) + '%. Consider listing before floor drops.',
         level: 'amber', time: now, icon: '💡'
       });
     }
 
-    /* Profit tier hits */
-    for (const [tierName, multiplier] of Object.entries(PROFIT_TIERS)) {
-      const target    = entry * multiplier;
-      const targetStr = target.toFixed(4);
-      const gapEth    = (target - floor).toFixed(4);
+    /* 5. Tier hits — one alert per tier */
+    for (const [tierName, tokens] of Object.entries(tierHitsByTier)) {
+      const ids = tokens.map(x => '#' + x.h.tokenId).join(', ');
+      alerts.push({
+        type: 'TARGET HIT: ' + tierName + ' (' + tokens.length + ' token' + (tokens.length > 1 ? 's' : '') + ')',
+        text: ids + ' have reached the ' + tierName + ' target. Floor: ' + floor.toFixed(5) + ' ETH. Consider listing.',
+        level: 'green', time: now, icon: '🎯'
+      });
+    }
 
-      if (floor > 0 && floor >= target) {
-        alerts.push({
-          type: `TARGET HIT: ${tierName}`,
-          text: `Token #${h.tokenId} — floor ${floor.toFixed(4)} ETH has reached your ${tierName} target (${targetStr} ETH). You are +${pnlPct.toFixed(0)}%. List now or set a higher limit.`,
-          level: 'green', time: now, icon: '🎯'
-        });
-      } else if (floor > 0 && parseFloat(gapEth) < (entry * 0.1)) {
-        /* Within 10% of entry value of hitting a target */
-        alerts.push({
-          type: `CLOSE TO ${tierName}`,
-          text: `Token #${h.tokenId} — only ${gapEth} ETH away from your ${tierName} target (${targetStr} ETH). Currently ${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(0)}%.`,
-          level: 'amber', time: now, icon: '📍'
-        });
-      }
+    /* 6. Near tier — one alert per tier */
+    for (const [tierName, tokens] of Object.entries(nearTiersByTier)) {
+      const ids = tokens.map(x => '#' + x.h.tokenId).join(', ');
+      const minGap = Math.min(...tokens.map(x => x.gap)).toFixed(4);
+      alerts.push({
+        type: 'CLOSE TO ' + tierName,
+        text: ids + ' — closest is ' + minGap + ' ETH from ' + tierName + ' target.',
+        level: 'amber', time: now, icon: '📍'
+      });
     }
   }
 
