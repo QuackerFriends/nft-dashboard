@@ -5,27 +5,31 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NFT Signal Dashboard</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root {
-  --bg: #080B10;
-  --surface: #0E1218;
-  --surface2: #141920;
-  --border: rgba(255,255,255,0.06);
-  --border2: rgba(255,255,255,0.12);
-  --green: #00E5A0;
-  --green-dim: rgba(0,229,160,0.12);
-  --red: #FF4D6A;
-  --red-dim: rgba(255,77,106,0.12);
-  --amber: #FFB020;
-  --amber-dim: rgba(255,176,32,0.12);
-  --blue: #4D9EFF;
-  --blue-dim: rgba(77,158,255,0.10);
-  --text: #F0F4F8;
-  --muted: #5A6478;
-  --dim: #8A95A8;
-  --mono: 'Space Mono', monospace;
-  --sans: 'DM Sans', sans-serif;
+  --bg: #07090D;
+  --surface: #0C0F16;
+  --surface2: #121720;
+  --surface3: #181F2B;
+  --border: rgba(255,255,255,0.055);
+  --border2: rgba(255,255,255,0.11);
+  --green: #05E28A;
+  --green-dim: rgba(5,226,138,0.10);
+  --green-glow: rgba(5,226,138,0.25);
+  --red: #FF3E5A;
+  --red-dim: rgba(255,62,90,0.10);
+  --red-glow: rgba(255,62,90,0.25);
+  --amber: #FFAA00;
+  --amber-dim: rgba(255,170,0,0.10);
+  --blue: #3D8EFF;
+  --blue-dim: rgba(61,142,255,0.12);
+  --purple: #9B6DFF;
+  --text: #E8EDF5;
+  --muted: #4A5568;
+  --dim: #7A8799;
+  --mono: 'IBM Plex Mono', monospace;
+  --sans: 'Syne', sans-serif;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -38,119 +42,172 @@ body {
   overflow-x: hidden;
 }
 
-/* Grid background */
 body::before {
   content: '';
   position: fixed;
   inset: 0;
   background-image:
-    linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
-  background-size: 48px 48px;
+    linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px);
+  background-size: 52px 52px;
   pointer-events: none;
   z-index: 0;
 }
 
-.app { position: relative; z-index: 1; max-width: 1200px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+body::after {
+  content: '';
+  position: fixed;
+  top: -200px;
+  right: -200px;
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(5,226,138,0.04) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
 
-/* Header */
+.app { position: relative; z-index: 1; max-width: 1240px; margin: 0 auto; padding: 2rem 1.5rem 5rem; }
+
 .header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   margin-bottom: 2.5rem;
   flex-wrap: wrap;
-  gap: 1rem;
+  gap: 1.25rem;
 }
 .header-left { display: flex; flex-direction: column; gap: 4px; }
 .logo {
   font-family: var(--mono);
-  font-size: 11px;
-  letter-spacing: .15em;
+  font-size: 10px;
+  letter-spacing: .2em;
   color: var(--green);
   text-transform: uppercase;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.logo-diamond {
+  width: 8px; height: 8px;
+  background: var(--green);
+  transform: rotate(45deg);
+  box-shadow: 0 0 10px var(--green-glow);
 }
 .header h1 {
-  font-size: 28px;
-  font-weight: 600;
-  letter-spacing: -.02em;
+  font-family: var(--sans);
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -.03em;
   color: var(--text);
+  line-height: 1;
 }
-.header-sub { font-size: 13px; color: var(--muted); margin-top: 4px; }
+.header-sub { font-size: 13px; color: var(--muted); margin-top: 6px; font-family: var(--mono); }
 .header-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
 .btn {
   display: inline-flex; align-items: center; gap: 8px;
-  padding: 10px 18px; border-radius: 8px;
-  font-size: 13px; font-weight: 500;
+  padding: 10px 20px; border-radius: 8px;
+  font-size: 13px; font-weight: 600;
   cursor: pointer; transition: all .15s;
   border: 1px solid var(--border2);
   background: var(--surface2);
   color: var(--text);
   font-family: var(--sans);
+  letter-spacing: .01em;
 }
-.btn:hover { background: var(--surface); border-color: rgba(255,255,255,0.2); }
+.btn:hover { background: var(--surface3); border-color: rgba(255,255,255,0.18); }
 .btn-primary {
   background: var(--green);
   color: #000;
   border-color: var(--green);
+  font-weight: 700;
+  box-shadow: 0 0 20px var(--green-glow);
 }
-.btn-primary:hover { background: #00ffb3; border-color: #00ffb3; }
-.btn svg { width: 15px; height: 15px; }
+.btn-primary:hover { background: #07f598; border-color: #07f598; box-shadow: 0 0 30px var(--green-glow); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn svg { width: 14px; height: 14px; flex-shrink: 0; }
 
+.status-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 20px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  font-size: 12px;
+  font-family: var(--mono);
+  color: var(--muted);
+}
 .status-dot {
-  width: 8px; height: 8px; border-radius: 50%;
-  background: var(--green);
-  box-shadow: 0 0 8px var(--green);
-  animation: pulse 2s infinite;
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--muted);
+  flex-shrink: 0;
 }
-@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+.status-dot.live { background: var(--green); box-shadow: 0 0 8px var(--green); animation: pulse 2s infinite; }
+.status-dot.loading { background: var(--amber); box-shadow: 0 0 8px var(--amber); animation: pulse .8s infinite; }
+.status-dot.error { background: var(--red); box-shadow: 0 0 8px var(--red); }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
 
-/* Config panel */
 .config-panel {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 16px;
-  padding: 1.5rem;
+  padding: 1.5rem 1.75rem;
   margin-bottom: 2rem;
 }
 .config-title {
   font-family: var(--mono);
   font-size: 10px;
-  letter-spacing: .12em;
+  letter-spacing: .18em;
   color: var(--muted);
   text-transform: uppercase;
   margin-bottom: 1.25rem;
 }
-.config-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; }
+.config-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; }
 .config-field { display: flex; flex-direction: column; gap: 6px; }
-.config-label { font-size: 12px; color: var(--dim); }
+.config-label { font-size: 11px; color: var(--dim); font-family: var(--mono); letter-spacing: .05em; }
 .config-input {
   background: var(--surface2);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 10px 12px;
+  padding: 10px 13px;
   color: var(--text);
   font-size: 13px;
   font-family: var(--mono);
   width: 100%;
-  transition: border-color .15s;
+  transition: border-color .15s, box-shadow .15s;
   outline: none;
 }
-.config-input:focus { border-color: var(--green); }
+.config-input:focus { border-color: var(--green); box-shadow: 0 0 0 3px var(--green-dim); }
 .config-input::placeholder { color: var(--muted); }
+.config-hint { font-size: 11px; color: var(--muted); font-family: var(--mono); }
 
-/* Tabs */
+.warning-banner {
+  background: var(--amber-dim);
+  border: 1px solid rgba(255,170,0,0.2);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 12px;
+  color: var(--amber);
+  font-family: var(--mono);
+  margin-top: 1rem;
+  display: none;
+}
+
 .tabs { display: flex; gap: 4px; margin-bottom: 1.5rem; flex-wrap: wrap; }
 .tab {
-  padding: 8px 16px; border-radius: 8px;
-  font-size: 13px; font-weight: 500;
+  padding: 8px 18px; border-radius: 8px;
+  font-size: 13px; font-weight: 600;
   cursor: pointer; transition: all .15s;
   border: 1px solid transparent;
   color: var(--muted);
   background: transparent;
   font-family: var(--sans);
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 .tab:hover { color: var(--text); background: var(--surface2); }
 .tab.active {
@@ -158,200 +215,261 @@ body::before {
   background: var(--surface2);
   border-color: var(--border2);
 }
-.tab-add {
-  color: var(--green);
-  border-color: var(--green-dim);
-  background: var(--green-dim);
+.tab-verdict {
+  font-size: 9px;
+  font-family: var(--mono);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 700;
+  letter-spacing: .05em;
 }
-.tab-add:hover { background: rgba(0,229,160,0.2); }
 
-/* Metric cards */
-.metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 1.25rem; }
+.metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(148px, 1fr)); gap: 10px; margin-bottom: 1.25rem; }
 .metric-card {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 1rem 1.1rem;
+  border-radius: 14px;
+  padding: 1.1rem 1.2rem;
   transition: border-color .15s;
+  position: relative;
+  overflow: hidden;
 }
 .metric-card:hover { border-color: var(--border2); }
-.metric-label { font-size: 11px; color: var(--muted); margin-bottom: 8px; letter-spacing: .03em; }
-.metric-value { font-size: 22px; font-weight: 600; font-family: var(--mono); }
-.metric-change { font-size: 11px; margin-top: 5px; }
+.metric-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  border-radius: 14px 14px 0 0;
+}
+.metric-card.metric-up::before { background: var(--green); }
+.metric-card.metric-down::before { background: var(--red); }
+.metric-card.metric-neutral::before { background: var(--surface3); }
+
+.metric-label { font-size: 10px; color: var(--muted); margin-bottom: 10px; letter-spacing: .08em; font-family: var(--mono); text-transform: uppercase; }
+.metric-value { font-size: 24px; font-weight: 700; font-family: var(--mono); line-height: 1; }
+.metric-unit { font-size: 12px; color: var(--muted); font-weight: 400; }
+.metric-change { font-size: 11px; margin-top: 6px; font-family: var(--mono); }
 .up { color: var(--green); }
 .down { color: var(--red); }
 .neutral { color: var(--muted); }
 
-/* Main grid */
-.main-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
-@media(max-width: 680px) { .main-grid { grid-template-columns: 1fr; } }
+.main-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+@media(max-width: 720px) { .main-grid { grid-template-columns: 1fr; } }
+.full-card { grid-column: 1 / -1; }
 
-/* Cards */
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 16px;
-  padding: 1.25rem;
+  padding: 1.4rem;
 }
 .card-title {
-  font-size: 11px;
+  font-size: 10px;
   font-family: var(--mono);
-  letter-spacing: .1em;
+  letter-spacing: .15em;
   color: var(--muted);
   text-transform: uppercase;
-  margin-bottom: 1.1rem;
+  margin-bottom: 1.2rem;
   display: flex;
   align-items: center;
   gap: 8px;
 }
+.card-title-icon {
+  width: 6px; height: 6px;
+  background: var(--green);
+  transform: rotate(45deg);
+  flex-shrink: 0;
+}
 
-/* Score card */
-.score-display { display: flex; align-items: center; justify-content: space-between; }
-.score-num { font-size: 56px; font-weight: 700; font-family: var(--mono); line-height: 1; }
+.score-display { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.score-num { font-size: 64px; font-weight: 700; font-family: var(--mono); line-height: 1; }
 .score-right { text-align: right; }
 .score-badge {
   display: inline-block;
   padding: 5px 14px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 600;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
   font-family: var(--mono);
-  letter-spacing: .05em;
+  letter-spacing: .1em;
   margin-bottom: 8px;
 }
-.badge-buy { background: var(--green-dim); color: var(--green); border: 1px solid rgba(0,229,160,0.25); }
-.badge-exit { background: var(--red-dim); color: var(--red); border: 1px solid rgba(255,77,106,0.25); }
-.badge-hold { background: var(--amber-dim); color: var(--amber); border: 1px solid rgba(255,176,32,0.25); }
-.score-sub { font-size: 12px; color: var(--muted); }
+.badge-buy { background: var(--green-dim); color: var(--green); border: 1px solid rgba(5,226,138,0.2); }
+.badge-exit { background: var(--red-dim); color: var(--red); border: 1px solid rgba(255,62,90,0.2); }
+.badge-hold { background: var(--amber-dim); color: var(--amber); border: 1px solid rgba(255,170,0,0.2); }
+.score-sub { font-size: 11px; color: var(--muted); font-family: var(--mono); }
 
-/* Signal breakdown */
+.score-bar-wrap { margin-top: 1.2rem; }
+.score-bar-track {
+  height: 6px;
+  background: var(--surface3);
+  border-radius: 3px;
+  position: relative;
+  overflow: visible;
+}
+.score-bar-fill {
+  height: 6px;
+  border-radius: 3px;
+  transition: width .5s ease, background .3s;
+  position: relative;
+}
+.score-bar-labels { display: flex; justify-content: space-between; margin-top: 6px; font-size: 10px; color: var(--muted); font-family: var(--mono); }
+
 .breakdown-row {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 0;
+  padding: 7px 0;
   border-bottom: 1px solid var(--border);
-  font-size: 13px;
+  font-size: 12px;
 }
 .breakdown-row:last-child { border-bottom: none; }
-.breakdown-label { color: var(--dim); flex: 1; }
-.breakdown-bar-wrap { flex: 1; height: 4px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; }
+.breakdown-label { color: var(--dim); flex: 1; font-family: var(--mono); font-size: 11px; }
+.breakdown-bar-wrap { flex: 1; height: 4px; background: rgba(255,255,255,0.05); border-radius: 2px; overflow: hidden; }
 .breakdown-bar { height: 4px; border-radius: 2px; transition: width .4s ease; }
-.breakdown-pts { font-family: var(--mono); font-size: 12px; min-width: 28px; text-align: right; font-weight: 700; }
+.breakdown-pts { font-family: var(--mono); font-size: 12px; min-width: 32px; text-align: right; font-weight: 700; }
+.breakdown-weight { font-size: 9px; color: var(--muted); font-family: var(--mono); min-width: 36px; text-align: right; }
 
-/* Alerts */
 .alert-item {
   display: flex;
   gap: 12px;
   align-items: flex-start;
   padding: 10px 0;
   border-bottom: 1px solid var(--border);
-  font-size: 13px;
 }
 .alert-item:last-child { border-bottom: none; }
-.alert-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
-.alert-text { color: var(--text); line-height: 1.5; }
-.alert-time { font-size: 11px; color: var(--muted); margin-top: 3px; font-family: var(--mono); }
-.alert-type { font-size: 10px; font-family: var(--mono); letter-spacing: .08em; font-weight: 700; margin-bottom: 2px; }
+.alert-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+.alert-body { flex: 1; }
+.alert-type { font-size: 10px; font-family: var(--mono); letter-spacing: .1em; font-weight: 700; margin-bottom: 3px; }
+.alert-text { color: var(--text); line-height: 1.55; font-size: 12px; font-family: var(--mono); }
+.alert-time { font-size: 10px; color: var(--muted); margin-top: 4px; font-family: var(--mono); }
 
-/* Position chart */
 .position-row {
-  display: flex; align-items: center; gap: 12px;
-  padding: 12px 0; border-bottom: 1px solid var(--border);
-  font-size: 13px;
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 0; border-bottom: 1px solid var(--border);
 }
 .position-row:last-child { border-bottom: none; }
-.pos-token { font-family: var(--mono); font-size: 12px; color: var(--dim); min-width: 60px; }
-.pos-track { flex: 1; position: relative; height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; }
-.pos-fill { height: 6px; border-radius: 3px; position: absolute; left: 0; top: 0; }
-.pos-markers { position: relative; height: 16px; flex: 1; }
-.pos-marker { position: absolute; font-size: 9px; font-family: var(--mono); color: var(--muted); top: 0; transform: translateX(-50%); white-space: nowrap; }
-.pos-pnl { font-family: var(--mono); font-size: 13px; font-weight: 700; min-width: 55px; text-align: right; }
+.pos-token { font-family: var(--mono); font-size: 11px; color: var(--dim); min-width: 65px; }
+.pos-pnl { font-family: var(--mono); font-size: 14px; font-weight: 700; min-width: 60px; text-align: right; }
+.pos-method { font-size: 10px; color: var(--muted); font-family: var(--mono); margin-top: 2px; }
 
-/* Volume bar */
-.vol-bar-wrap { position: relative; height: 10px; background: rgba(255,255,255,0.06); border-radius: 5px; overflow: hidden; margin: .75rem 0; }
-.vol-bar { height: 10px; border-radius: 5px; transition: width .5s ease; }
-.vol-labels { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); font-family: var(--mono); }
-.vol-marker { position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(255,255,255,0.2); }
+.vol-bar-wrap { position: relative; height: 8px; background: rgba(255,255,255,0.05); border-radius: 4px; overflow: hidden; margin: .75rem 0; }
+.vol-bar { height: 8px; border-radius: 4px; transition: width .5s ease; }
+.vol-labels { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); font-family: var(--mono); }
 
-/* Empty state */
-.empty { text-align: center; padding: 3rem 2rem; color: var(--muted); font-size: 14px; }
-.empty-icon { font-size: 32px; margin-bottom: 1rem; opacity: .4; }
+.floor-history { display: flex; align-items: flex-end; gap: 3px; height: 40px; margin: .75rem 0; }
+.floor-bar { flex: 1; border-radius: 2px 2px 0 0; min-height: 4px; transition: height .4s ease; position: relative; }
+.floor-bar:hover .floor-tip { display: block; }
+.floor-tip { display: none; position: absolute; bottom: 105%; left: 50%; transform: translateX(-50%); background: var(--surface3); border: 1px solid var(--border2); border-radius: 4px; padding: 3px 6px; font-size: 9px; font-family: var(--mono); color: var(--text); white-space: nowrap; z-index: 10; }
 
-/* Loading */
-.loading { text-align: center; padding: 4rem 2rem; }
-.loading-text { font-family: var(--mono); font-size: 13px; color: var(--green); animation: blink 1s infinite; }
-@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+.empty {
+  text-align: center;
+  padding: 4rem 2rem;
+  color: var(--muted);
+}
+.empty-diamond {
+  width: 32px; height: 32px;
+  background: var(--surface3);
+  transform: rotate(45deg);
+  margin: 0 auto 1.5rem;
+  opacity: .4;
+}
+.empty p { font-family: var(--mono); font-size: 13px; line-height: 1.7; }
 
-/* Timestamp */
+.loading {
+  text-align: center;
+  padding: 5rem 2rem;
+}
+.loading-text {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--green);
+  letter-spacing: .1em;
+}
+.loading-sub { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 8px; }
+
 .last-updated {
-  font-size: 11px; font-family: var(--mono);
-  color: var(--muted); text-align: right;
-  margin-top: 1.5rem;
+  font-size: 10px;
+  font-family: var(--mono);
+  color: var(--muted);
+  text-align: right;
+  margin-top: 2rem;
+  letter-spacing: .05em;
 }
 
-/* Scrollbar */
+.data-note {
+  font-size: 11px;
+  font-family: var(--mono);
+  color: var(--muted);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-top: 1rem;
+  line-height: 1.6;
+}
+
+.trend-label { font-size: 10px; font-family: var(--mono); }
+
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: var(--bg); }
-::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 2px; }
-
-/* Full width card */
-.full-card { grid-column: 1 / -1; }
+::-webkit-scrollbar-thumb { background: var(--surface3); border-radius: 2px; }
 </style>
 </head>
 <body>
 <div class="app">
 
-  <!-- Header -->
   <div class="header">
     <div class="header-left">
-      <div class="logo">◈ NFT Signal</div>
+      <div class="logo"><span class="logo-diamond"></span>NFT SIGNAL</div>
       <h1>Signal Dashboard</h1>
-      <div class="header-sub">Real-time buy · sell · exit alerts powered by Moralis</div>
+      <div class="header-sub">buy / hold / exit signals via Moralis API</div>
     </div>
     <div class="header-right">
-      <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)">
-        <div class="status-dot" id="status-dot" style="background:var(--muted);box-shadow:none"></div>
-        <span id="status-text">Not fetched yet</span>
+      <div class="status-pill">
+        <div class="status-dot" id="status-dot"></div>
+        <span id="status-text">Not connected</span>
       </div>
-      <button class="btn btn-primary" onclick="fetchAll()">
+      <button class="btn btn-primary" id="refresh-btn" onclick="fetchAll()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 4v5h5M20 20v-5h-5M4 9a9 9 0 0115 0M20 15a9 9 0 01-15 0"/></svg>
-        Refresh data
+        Refresh
       </button>
     </div>
   </div>
 
-  <!-- Config -->
   <div class="config-panel">
-    <div class="config-title">⚙ Configuration</div>
+    <div class="config-title">Configuration</div>
     <div class="config-grid">
       <div class="config-field">
-        <label class="config-label">Moralis API key</label>
-        <input class="config-input" id="api-key" type="password" placeholder="Paste your Moralis key..." />
+        <label class="config-label">Moralis API Key</label>
+        <input class="config-input" id="api-key" type="password" placeholder="Paste your key here..." />
+        <span class="config-hint">Get yours free at moralis.io</span>
       </div>
       <div class="config-field">
-        <label class="config-label">Your wallet address</label>
+        <label class="config-label">Your Wallet Address</label>
         <input class="config-input" id="wallet" placeholder="0x..." value="0x38aF7644b120B56e2FEce98b8A9A3DE14F8Fbf1D" />
       </div>
       <div class="config-field">
-        <label class="config-label">Stop-loss % below entry</label>
+        <label class="config-label">Stop-Loss Threshold (%)</label>
         <input class="config-input" id="stop-loss" type="number" value="20" min="5" max="80" />
+        <span class="config-hint">Floor drop below entry to trigger exit</span>
       </div>
       <div class="config-field">
-        <label class="config-label">Manual entry price (if offer-bought)</label>
-        <input class="config-input" id="manual-price" type="number" step="0.0001" placeholder="e.g. 0.025 ETH" />
+        <label class="config-label">Manual Entry Price (ETH)</label>
+        <input class="config-input" id="manual-price" type="number" step="0.0001" placeholder="e.g. 0.025" />
+        <span class="config-hint">Used when offer-bought (no on-chain value)</span>
       </div>
     </div>
+    <div class="warning-banner" id="warning-banner"></div>
   </div>
 
-  <!-- Collection tabs -->
   <div class="tabs" id="tabs"></div>
 
-  <!-- Dashboard content -->
   <div id="dashboard">
     <div class="empty">
-      <div class="empty-icon">◈</div>
-      <div>Enter your Moralis API key above and hit <strong>Refresh data</strong></div>
+      <div class="empty-diamond"></div>
+      <p>Enter your Moralis API key above<br>and press Refresh to load signals.</p>
     </div>
   </div>
 
@@ -359,268 +477,518 @@ body::before {
 </div>
 
 <script>
+/* ============================================================
+   COLLECTIONS — add or change addresses here
+   ============================================================ */
 const COLLECTIONS = {
   'Still Alive': '0x52caee4275765dde6f47f874e7cf8181f5b5e5da',
   'Gorgez':      '0x6339e5e072086621540d0362c4e3cea0d643e114',
-  'Ghost Lab':  '0x375DfbE7EBdF082276fC0cB9447932DC1bB6E306',
+  'Ghost Lab':   '0x375DfbE7EBdF082276fC0cB9447932DC1bB6E306',
 };
 
 const PROFIT_TIERS = { '1.5x': 1.5, '2x': 2.0, '4x': 4.0 };
 const BASE = 'https://deep-index.moralis.io/api/v2.2';
-const entryPriceCache = new Map();
-const ENTRY_TTL_MS = 60 * 1000; // 60s cache
 
 let state = {};
 let activeTab = Object.keys(COLLECTIONS)[0];
 
-function getKey() { return document.getElementById('api-key').value.trim(); }
-function getWallet() { return document.getElementById('wallet').value.trim(); }
-function getStopLoss() { return parseFloat(document.getElementById('stop-loss').value) || 20; }
-function getManualPrice() { return parseFloat(document.getElementById('manual-price').value) || null; }
+/* ============================================================
+   HELPERS
+   ============================================================ */
+function getKey()        { return document.getElementById('api-key').value.trim(); }
+function getWallet()     { return document.getElementById('wallet').value.trim().toLowerCase(); }
+function getStopLoss()   { return parseFloat(document.getElementById('stop-loss').value) || 20; }
+function getManualPrice(){ return parseFloat(document.getElementById('manual-price').value) || null; }
 
-function headers() {
+function apiHeaders() {
   return { 'accept': 'application/json', 'X-API-Key': getKey() };
 }
 
-async function api(url, params={}) {
+async function apiGet(url, params = {}) {
   const u = new URL(url);
-  Object.entries(params).forEach(([k,v]) => u.searchParams.append(k,v));
-  const r = await fetch(u.toString(), { headers: headers() });
-  if (!r.ok) throw new Error(`API ${r.status}`);
+  Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== '') u.searchParams.append(k, v); });
+  const r = await fetch(u.toString(), { headers: apiHeaders() });
+  if (r.status === 401) throw new Error('Invalid API key');
+  if (r.status === 429) throw new Error('Rate limited — wait a moment');
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
   return r.json();
 }
 
-async function fetchFloor(contract) {
+async function safeGet(url, params = {}, fallback = {}) {
+  try { return await apiGet(url, params); }
+  catch(e) { console.warn('API call failed:', url, e.message); return fallback; }
+}
+
+/* ============================================================
+   DATA FETCHERS — using correct Moralis v2.2 endpoints
+   ============================================================ */
+
+/* Floor price — using the NFT collection stats endpoint which includes floor */
+async function fetchCollectionStats(contract) {
+  /* Primary: nft/{contract}/stats gives floor, volume, sales */
+  const d = await safeGet(`${BASE}/nft/${contract}/stats`, { chain: 'eth' }, null);
+  if (d && d.floor_price) return d;
+
+  /* Fallback: market data endpoint */
+  const d2 = await safeGet(`${BASE}/nft/market-data/nft-collection-stats`, {
+    chain: 'eth', address: contract
+  }, null);
+  return d2 || {};
+}
+
+/* Active listings count */
+async function fetchListings(contract) {
   try {
-    const data = await api(`${BASE}/nft/${contract}/floor-price`, {chain:'eth'});
-    const list = Array.isArray(data) ? data : (data.result || []);
-    const floors = list.map(i => parseFloat(i.floor_price||0)).filter(f=>f>0);
-    return floors.length ? Math.min(...floors) : 0;
-  } catch { return 0; }
-}
-  
-  function salesAcceleration(transfers) {
-  const now = Date.now();
-  const last1h = transfers.filter(t =>  now - new Date(t.block_timestamp).getTime()      < 3600000 ).length;
-  const prev6h = transfers.filter(t => {
-  const age =     now - new Date(t.block_timestamp).getTime();
-    return age >= 3600000 &&  age < 21600000; }).length;
-  const avgPrev = prev6h / 5 || 1;
-  return parseFloat(  (last1h / avgPrev).toFixed(2)  );}
-
-async function fetchStats(contract) {
-  try { return await api(`${BASE}/nft/${contract}/stats`, {chain:'eth'}); }
-  catch { return {}; }
+    const d = await apiGet(`${BASE}/nft/${contract}`, {
+      chain: 'eth', limit: 1, format: 'decimal'
+    });
+    return {
+      total: parseInt(d.total || 0),
+      listed: 0  /* Moralis free tier doesn't expose listed count separately — estimated from stats */
+    };
+  } catch { return { total: 0, listed: 0 }; }
 }
 
-async function fetchTransfers(contract) {
-  try {
-    const d = await api(`${BASE}/nft/${contract}/transfers`, {chain:'eth', limit:50});
-    return d.result || [];
-  } catch { return []; }
+/* Recent transfers for volume / buyer analysis */
+async function fetchTransfers(contract, limit = 100) {
+  const d = await safeGet(`${BASE}/nft/${contract}/transfers`, {
+    chain: 'eth', limit
+  }, { result: [] });
+  return d.result || [];
 }
-  async function fetchCollectionTransfers(contract) {  try {const d = await api(`${BASE}/nft/${contract}/transfers`,  {   chain: 'eth',    limit: 100     } );
-    return d.result || [];
-  } catch {
-  return [];  }}
 
+/* Wallet holdings for this collection */
 async function fetchHoldings(wallet, contract) {
-  try {
-    const d = await api(`${BASE}/${wallet}/nft`, {chain:'eth', 'token_addresses[]': contract, limit:100, normalizeMetadata:'false'});
-    return (d.result||[]).map(i=>i.token_id);
-  } catch { return []; }
+  const d = await safeGet(`${BASE}/${wallet}/nft`, {
+    chain: 'eth', 'token_addresses[]': contract, limit: 100, normalizeMetadata: 'false'
+  }, { result: [] });
+  return (d.result || []).map(i => i.token_id);
 }
 
+/* Entry price: walk transfer history for the token, find when wallet received it */
 async function fetchEntryPrice(wallet, contract, tokenId) {
-  const key = `${wallet}-${contract}-${tokenId}`;
-  const now = Date.now();
+  const wl = wallet.toLowerCase();
+  const manual = getManualPrice();
 
-  // 1. CHECK CACHE FIRST
-  const cached = entryPriceCache.get(key);
-  if (cached && (now - cached.timestamp < ENTRY_TTL_MS)) {
-    return cached.data;
-  }
   try {
-    const d = await api(`${BASE}/nft/${contract}/${tokenId}/transfers`, {chain:'eth', limit:50});
-    const transfers = (d.result||[]).sort((a,b)=>b.block_timestamp.localeCompare(a.block_timestamp));
-    const wl = wallet.toLowerCase();
-    const manual = getManualPrice();
+    const d = await apiGet(`${BASE}/nft/${contract}/${tokenId}/transfers`, {
+      chain: 'eth', limit: 50
+    });
+    const transfers = (d.result || []).sort((a, b) =>
+      new Date(b.block_timestamp) - new Date(a.block_timestamp)
+    );
 
-for (const t of transfers) {
-  if (t.to_address?.toLowerCase() !== wl) continue;
+    /* Find the most recent transfer TO this wallet */
+    for (const t of transfers) {
+      if (t.to_address?.toLowerCase() !== wl) continue;
+      const rawVal = parseInt(t.value || '0');
+      const ethVal = rawVal / 1e18;
+      const date = t.block_timestamp?.slice(0, 10) || 'unknown';
+      const txHash = t.transaction_hash || '';
 
-  const val = parseFloat(t.value) / 1e18;
-
-  // real on-chain payment
-  if (val > 0) {
-    return {
-      price: val,
-      date: t.block_timestamp?.slice(0,10),
-      method: 'direct'
-    };
+      if (ethVal > 0) {
+        return { price: ethVal, date, method: 'purchase', txHash };
+      }
+      /* Zero value = offer accepted / airdrop */
+      if (manual) {
+        return { price: manual, date, method: 'offer (manual price)', txHash };
+      }
+      return { price: null, date, method: 'offer — set manual price above', txHash };
+    }
+    return { price: manual || null, date: null, method: manual ? 'manual' : 'no transfer found', txHash: '' };
+  } catch(e) {
+    return { price: manual || null, date: null, method: `error: ${e.message}`, txHash: '' };
   }
-
-  // fallback: manual override
-  if (manual) {
-    return {
-      price: manual,
-      date: t.block_timestamp?.slice(0,10),
-      method: 'manual'
-    };
-  }
-
-  // nothing found yet
-  return {
-    price: null,
-    date: t.block_timestamp?.slice(0,10),
-    method: 'offer — set manual price'
-  };
-}
-    return { price: null, date: null, method: 'unknown' };
-  } catch { return { price: null, date: null, method: 'error' }; }
 }
 
+/* Historical floor price proxy: look at the last N sales and build mini trend */
+async function buildFloorTrend(transfers) {
+  /* Group sales by day and compute rough avg sale price */
+  const byDay = {};
+  for (const t of transfers) {
+    if (!t.block_timestamp) continue;
+    const val = parseInt(t.value || 0) / 1e18;
+    if (val <= 0) continue;
+    const day = t.block_timestamp.slice(0, 10);
+    if (!byDay[day]) byDay[day] = [];
+    byDay[day].push(val);
+  }
+  const days = Object.keys(byDay).sort();
+  return days.slice(-7).map(d => ({
+    day: d,
+    avg: byDay[d].reduce((a, b) => a + b, 0) / byDay[d].length,
+    count: byDay[d].length
+  }));
+}
+
+/* ============================================================
+   IMPROVED SIGNAL SCORING — 8 factors, max +10 / min -10
+   ============================================================ */
 function scoreSignal(d) {
-  let score = 0;
   const reasons = [];
+  let score = 0;
+
+  /* 1. Volume ratio vs 7-day average (weight: 2) */
   const vr = d.volumeRatio || 0;
-  if (vr >= 3)       { score += 2; reasons.push(['Volume spike', 2, 'buy']); }
-  else if (vr >= 1.5){ score += 1; reasons.push(['Moderate volume', 1, 'buy']); }
-  else if (vr > 0 && vr < 0.5){ score -= 2; reasons.push(['Volume drying up', -2, 'sell']); }
-  else                { reasons.push(['Volume neutral', 0, 'neutral']); }
+  if      (vr >= 4)   { score += 2; reasons.push(['Volume spike (4x+ avg)', +2, 'buy',    'Strong accumulation signal']); }
+  else if (vr >= 2)   { score += 1; reasons.push(['Volume elevated (2-4x)',  +1, 'buy',    'Above-average interest']); }
+  else if (vr >= 0.8) {             reasons.push(['Volume normal (0.8-2x)',   0, 'neutral','Baseline activity']); }
+  else if (vr >= 0.3) { score -= 1; reasons.push(['Volume declining',        -1, 'sell',   'Below-average trading']); }
+  else                { score -= 2; reasons.push(['Volume dried up (<0.3x)', -2, 'sell',   'Very low liquidity — hard to exit']); }
 
+  /* 2. Listing supply pressure (weight: 2) */
   const lp = d.listingPct || 0;
-  if (lp < 5)       { score += 2; reasons.push(['Supply tight', 2, 'buy']); }
-  else if (lp > 20) { score -= 2; reasons.push(['Oversupply listed', -2, 'sell']); }
-  else               { reasons.push(['Listings neutral', 0, 'neutral']); }
+  if      (lp < 3)   { score += 2; reasons.push(['Supply very tight (<3%)',   +2, 'buy',    'Holders not selling — bullish']); }
+  else if (lp < 8)   { score += 1; reasons.push(['Supply tight (3-8%)',       +1, 'buy',    'Low sell pressure']); }
+  else if (lp < 18)  {             reasons.push(['Listings neutral (8-18%)',    0, 'neutral','Normal supply']); }
+  else if (lp < 30)  { score -= 1; reasons.push(['Supply elevated (18-30%)',  -1, 'sell',   'Growing sell pressure']); }
+  else               { score -= 2; reasons.push(['Oversupply (30%+ listed)',  -2, 'sell',   'Panic listing — likely floor drop']); }
 
+  /* 3. Unique buyer diversity (weight: 1) */
   const ub = d.uniqueBuyers || 0;
-  if (ub >= 10)      { score += 1; reasons.push(['Strong buyer diversity', 1, 'buy']); }
-  else if (ub < 3)   { score -= 1; reasons.push(['Few unique buyers', -1, 'sell']); }
-  else                { reasons.push(['Buyers moderate', 0, 'neutral']); }
+  if      (ub >= 15) { score += 1; reasons.push(['Strong buyer diversity (15+)', +1, 'buy',  'Wide interest, not whale-driven']); }
+  else if (ub >= 5)  {             reasons.push(['Moderate buyers (5-14)',          0, 'neutral','Moderate spread']); }
+  else               { score -= 1; reasons.push(['Few unique buyers (<5)',         -1, 'sell', 'Concentrated — wash trade risk']); }
 
+  /* 4. Sales velocity 24h (weight: 1) */
   const s = d.sales24h || 0;
-  if (s >= 20)       { score += 1; reasons.push(['High sales velocity', 1, 'buy']); }
-  else if (s < 3)    { score -= 1; reasons.push(['Low sales velocity', -1, 'sell']); }
-  else                { reasons.push(['Sales velocity ok', 0, 'neutral']); }
-const accel = d.acceleration || 0; if (accel >= 2) { score += 2;reasons.push([ 'Momentum accelerating',  2,'buy' ]);} 
-else if (accel <= 0.5) {  score -= 1; reasons.push([ 'Momentum slowing',-1,'sell' ]);} else { reasons.push(['Momentum stable',0, 'neutral' ]);}
-  
-  const verdict = score >= 4 ? 'BUY SIGNAL' : score <= -3 ? 'EXIT RISK' : 'HOLD / WATCH';
+  if      (s >= 30)  { score += 1; reasons.push(['High sales velocity (30+/day)', +1, 'buy',  'Strong demand']); }
+  else if (s >= 8)   {             reasons.push(['Moderate sales (8-29/day)',       0, 'neutral','Steady pace']); }
+  else if (s >= 2)   { score -= 1; reasons.push(['Low sales (2-7/day)',            -1, 'sell', 'Weak demand']); }
+  else               { score -= 2; reasons.push(['Almost no sales (<2/day)',       -2, 'sell', 'Dead market — exit risk']); }
+
+  /* 5. Floor price trend (weight: 2) — uses recent sale data */
+  const trend = d.floorTrend || [];
+  if (trend.length >= 3) {
+    const first = trend.slice(0, Math.ceil(trend.length / 2));
+    const last  = trend.slice(Math.ceil(trend.length / 2));
+    const avgFirst = first.reduce((a, b) => a + b.avg, 0) / first.length;
+    const avgLast  = last.reduce((a, b) => a + b.avg, 0) / last.length;
+    const trendPct = ((avgLast - avgFirst) / avgFirst) * 100;
+    if      (trendPct >= 15)  { score += 2; reasons.push([`Sale price trending up (+${trendPct.toFixed(0)}%)`,   +2, 'buy',  'Rising price momentum']); }
+    else if (trendPct >= 5)   { score += 1; reasons.push([`Sale price slightly up (+${trendPct.toFixed(0)}%)`,   +1, 'buy',  'Mild uptrend in recent sales']); }
+    else if (trendPct >= -5)  {             reasons.push([`Sale price flat (${trendPct.toFixed(0)}%)`,            0, 'neutral','No clear trend']); }
+    else if (trendPct >= -15) { score -= 1; reasons.push([`Sale price trending down (${trendPct.toFixed(0)}%)`, -1, 'sell', 'Prices falling in recent sales']); }
+    else                      { score -= 2; reasons.push([`Sale price dropping (${trendPct.toFixed(0)}%)`,      -2, 'sell', 'Strong downtrend — high exit risk']); }
+  } else {
+    reasons.push(['Price trend unavailable', 0, 'neutral', 'Not enough recent sales']);
+  }
+
+  /* 6. Buyer-to-seller ratio from recent transfers (weight: 1) */
+  const bsr = d.buyerSellerRatio || 1;
+  if      (bsr >= 1.8) { score += 1; reasons.push([`Buyers > sellers (${bsr.toFixed(1)}x)`,   +1, 'buy',  'More wallets accumulating']); }
+  else if (bsr >= 0.8) {             reasons.push([`B/S ratio balanced (${bsr.toFixed(1)}x)`,   0, 'neutral','Even market']); }
+  else                 { score -= 1; reasons.push([`Sellers > buyers (${bsr.toFixed(1)}x)`,    -1, 'sell', 'Distribution phase']); }
+
+  /* 7. Holder concentration (weight: 1) */
+  const hc = d.holderConcentration || 0;
+  if      (hc < 10)  { score += 1; reasons.push(['Well distributed holders',    +1, 'buy',  'Less whale control']); }
+  else if (hc < 25)  {             reasons.push(['Moderate concentration',        0, 'neutral','Normal distribution']); }
+  else               { score -= 1; reasons.push([`High concentration (${hc}%)`, -1, 'sell', 'Whale-controlled — dump risk']); }
+
+  /* 8. Position P&L context (weight: 1) */
+  const holdings = d.holdings || [];
+  if (holdings.length > 0) {
+    const withPrice = holdings.filter(h => h.price);
+    if (withPrice.length > 0) {
+      const profitableCount = withPrice.filter(h => (d.floor / h.price) >= 1.2).length;
+      const lossCount = withPrice.filter(h => (d.floor / h.price) <= 0.8).length;
+      if (profitableCount === withPrice.length && withPrice.length > 0) {
+        reasons.push([`All positions in profit (${profitableCount})`, 0, 'buy', 'Good position — consider tiered exits']);
+      } else if (lossCount > 0) {
+        score -= 1;
+        reasons.push([`${lossCount} position(s) in loss`, -1, 'sell', 'Below entry — stop-loss zone watch']);
+      } else {
+        reasons.push(['Positions near breakeven', 0, 'neutral', 'Monitor closely']);
+      }
+    }
+  }
+
+  /* Clamp total score */
+  score = Math.max(-10, Math.min(10, score));
+
+  const verdict =
+    score >= 5  ? 'STRONG BUY' :
+    score >= 3  ? 'BUY SIGNAL' :
+    score <= -5 ? 'EXIT NOW'   :
+    score <= -2 ? 'EXIT RISK'  :
+    'HOLD / WATCH';
+
   return { score, verdict, reasons };
 }
 
-function buildAlerts(floor, holdings, score, stopLossPct) {
+/* ============================================================
+   ALERT GENERATION — improved sell triggers
+   ============================================================ */
+function buildAlerts(floor, holdings, score, verdict, stopLossPct, trend) {
   const alerts = [];
   const now = new Date().toLocaleTimeString();
+
+  /* Collection-level alerts first */
+  if (score <= -5) {
+    alerts.push({
+      type: 'EXIT NOW',
+      text: `Signal score is ${score}. Multiple bearish factors detected. If you are in profit, list now before further floor erosion.`,
+      level: 'red', time: now, icon: '🚨'
+    });
+  } else if (score <= -2 && verdict === 'EXIT RISK') {
+    alerts.push({
+      type: 'EXIT RISK',
+      text: `Score ${score} — market is showing weakness. Volume dropping, sell pressure rising. Consider listing at or above floor.`,
+      level: 'red', time: now, icon: '⚠️'
+    });
+  }
+
+  /* Floor trend deterioration alert */
+  if (trend.length >= 3) {
+    const first = trend[0].avg;
+    const last = trend[trend.length - 1].avg;
+    const drop = ((last - first) / first) * 100;
+    if (drop <= -20) {
+      alerts.push({
+        type: 'FLOOR DETERIORATING',
+        text: `Recent average sale price has dropped ${Math.abs(drop).toFixed(0)}% over tracked period. Floor stability is at risk.`,
+        level: 'red', time: now, icon: '📉'
+      });
+    }
+  }
+
+  /* Per-token position alerts */
   for (const h of holdings) {
     const entry = h.price;
     if (!entry) {
-      alerts.push({ type: 'ACTION NEEDED', text: `Token #${h.tokenId} — set manual entry price in config to enable exit alerts.`, level: 'amber', time: now });
+      alerts.push({
+        type: 'PRICE MISSING',
+        text: `Token #${h.tokenId} — enter a manual price in config to enable exit and profit alerts.`,
+        level: 'amber', time: now, icon: '🔧'
+      });
       continue;
     }
-    const mult = floor / entry;
-    const pnl = (mult - 1) * 100;
-    if (floor < entry * (1 - stopLossPct/100)) {
-      alerts.push({ type: 'STOP-LOSS', text: `Token #${h.tokenId} — floor is ${Math.abs(pnl).toFixed(0)}% below your entry of ${entry} ETH. Consider cutting losses.`, level: 'red', time: now });
+
+    const mult   = floor / entry;
+    const pnlPct = (mult - 1) * 100;
+    const pnlEth = (floor - entry).toFixed(4);
+
+    /* Stop-loss check */
+    if (floor <= entry * (1 - stopLossPct / 100)) {
+      alerts.push({
+        type: 'STOP-LOSS HIT',
+        text: `Token #${h.tokenId} (entry ${entry.toFixed(4)} ETH) — floor is ${Math.abs(pnlPct).toFixed(0)}% below entry (${pnlEth} ETH). Stop-loss threshold of ${stopLossPct}% breached. Cut losses or average down with caution.`,
+        level: 'red', time: now, icon: '🛑'
+      });
     }
-    for (const [tierName, mult2] of Object.entries(PROFIT_TIERS)) {
-      const target = (entry * mult2).toFixed(4);
-      if (floor >= entry * mult2) {
-        alerts.push({ type: `HIT: ${tierName}`, text: `Token #${h.tokenId} — floor ${floor} ETH reached ${tierName} target (${target} ETH). Up ${pnl.toFixed(0)}%. Consider listing.`, level: 'green', time: now });
-      } else {
-        const gap = (entry * mult2 - floor).toFixed(4);
-        alerts.push({ type: `WATCHING: ${tierName}`, text: `Token #${h.tokenId} — ${gap} ETH away from ${tierName} target (${target} ETH). Currently ${pnl >= 0 ? '+' : ''}${pnl.toFixed(0)}%.`, level: 'neutral', time: now });
+
+    /* Signal deterioration while in profit — urge action */
+    if (score <= -2 && pnlPct > 0) {
+      alerts.push({
+        type: 'LOCK PROFIT',
+        text: `Token #${h.tokenId} — you are +${pnlPct.toFixed(0)}% (+${pnlEth} ETH) but signal is bearish (score ${score}). Consider listing to lock profit before floor drops.`,
+        level: 'amber', time: now, icon: '💡'
+      });
+    }
+
+    /* Profit tier hits */
+    for (const [tierName, multiplier] of Object.entries(PROFIT_TIERS)) {
+      const target    = entry * multiplier;
+      const targetStr = target.toFixed(4);
+      const gapEth    = (target - floor).toFixed(4);
+
+      if (floor >= target) {
+        alerts.push({
+          type: `TARGET HIT: ${tierName}`,
+          text: `Token #${h.tokenId} — floor ${floor.toFixed(4)} ETH has reached your ${tierName} target (${targetStr} ETH). You are +${pnlPct.toFixed(0)}%. List now or set a higher limit.`,
+          level: 'green', time: now, icon: '🎯'
+        });
+      } else if (parseFloat(gapEth) < (entry * 0.1)) {
+        /* Within 10% of entry value of hitting a target */
+        alerts.push({
+          type: `CLOSE TO ${tierName}`,
+          text: `Token #${h.tokenId} — only ${gapEth} ETH away from your ${tierName} target (${targetStr} ETH). Currently ${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(0)}%.`,
+          level: 'amber', time: now, icon: '📍'
+        });
       }
     }
-    if (score <= -2) {
-      alerts.push({ type: 'SIGNAL WARNING', text: `Token #${h.tokenId} — signal turning bearish (score ${score >= 0 ? '+' : ''}${score}). ${pnl >= 0 ? 'You are in profit — consider listing before momentum fades.' : 'High risk of further drop.'}`, level: pnl >= 0 ? 'amber' : 'red', time: now });
-    }
   }
+
+  if (alerts.length === 0) {
+    alerts.push({
+      type: 'ALL CLEAR',
+      text: 'No alerts triggered. Market conditions are stable for this collection.',
+      level: 'green', time: now, icon: '✅'
+    });
+  }
+
   return alerts;
 }
-  const entryCache = {}; // TOP OF FILE
 
+/* ============================================================
+   MAIN COLLECTION FETCH
+   ============================================================ */
 async function fetchCollection(name, contract) {
-   const { contract, tokenId } = entry;
-  const key = `${contract}-${tokenId}`;
   const wallet = getWallet();
-  const [floor, stats, transfers, tokenIds] = await Promise.all([
-    fetchFloor(contract),
-    fetchStats(contract),
-    fetchTransfers(contract),
+
+  /* Parallel fetch: stats + transfers + holdings */
+  const [stats, transfers, tokenIds] = await Promise.all([
+    fetchCollectionStats(contract),
+    fetchTransfers(contract, 100),
     fetchHoldings(wallet, contract)
   ]);
-  
- if (entryCache[key]) return entryCache[key];
-  
-  const vol24h = parseFloat(stats.volume_24h || 0);
-  const vol7d  = parseFloat(stats.volume_7d || 0);
-  const avgDay = vol7d / 7 || 0;
 
+  /* Parse stats — Moralis field names can vary; try multiple */
+  const floor    = parseFloat(stats.floor_price || stats.floor || 0);
+  const vol24h   = parseFloat(stats.volume_24h  || stats.volume || 0);
+  const vol7d    = parseFloat(stats.volume_7d   || 0);
+  const sales24h = parseInt(stats.sales_24h || stats.trades_24h || 0);
+  const supply   = parseInt(stats.total_tokens || stats.total_supply || 1);
+  const listings = parseInt(stats.total_tokens_with_price || stats.listed_count || 0);
+  const avgDayVol = vol7d > 0 ? vol7d / 7 : (vol24h || 0.001);
+  const volumeRatio = parseFloat((vol24h / avgDayVol).toFixed(2));
+
+  /* Buyer/seller analysis from transfers */
+  const buyers  = new Set();
+  const sellers = new Set();
+  for (const t of transfers) {
+    if (t.to_address)   buyers.add(t.to_address.toLowerCase());
+    if (t.from_address) sellers.add(t.from_address.toLowerCase());
+  }
+  /* Remove zero addresses */
+  buyers.delete('0x0000000000000000000000000000000000000000');
+  sellers.delete('0x0000000000000000000000000000000000000000');
+  const uniqueBuyers = buyers.size;
+  const buyerSellerRatio = sellers.size > 0 ? parseFloat((buyers.size / sellers.size).toFixed(2)) : 1;
+
+  /* Top holder concentration: check if any single buyer appears frequently */
+  const buyerCount = {};
+  for (const t of transfers) {
+    const addr = t.to_address?.toLowerCase();
+    if (addr && addr !== '0x0000000000000000000000000000000000000000') {
+      buyerCount[addr] = (buyerCount[addr] || 0) + 1;
+    }
+  }
+  const totalTx = transfers.length || 1;
+  const topBuyerPct = Math.max(...Object.values(buyerCount), 0) / totalTx * 100;
+  const holderConcentration = parseFloat(topBuyerPct.toFixed(1));
+
+  /* Fetch entry prices for holdings */
   const holdings = [];
   for (const tid of tokenIds) {
     const entry = await fetchEntryPrice(wallet, contract, tid);
     holdings.push({ tokenId: tid, ...entry });
   }
 
-  const buyers = new Set(transfers.map(t => t.to_address).filter(Boolean));
-  const supply = parseInt(stats.total_tokens || 1);
-  const listings = parseInt(stats.total_tokens_with_price || 0);  
-const collectionTransfers = await fetchCollectionTransfers(contract);
-  const acceleration =  salesAcceleration(collectionTransfers);
+  /* Build floor trend from recent sales */
+  const floorTrend = await buildFloorTrend(transfers);
 
+  const listingPct = supply > 0
+    ? parseFloat(((listings / supply) * 100).toFixed(1))
+    : 0;
 
   const d = {
-  name, contract, floor,
-  vol24h: vol24h.toFixed(4),
-  volumeRatio: avgDay ? parseFloat((vol24h / avgDay).toFixed(2)) : 0,
-  sales24h: parseInt(stats.sales_24h || 0),
-  listings, supply,
-  listingPct: parseFloat(((listings / supply) * 100).toFixed(1)),
-  uniqueBuyers: buyers.size,
-  holdings,
-  acceleration,
-};
-  
-  entryCache[key] = d;
-return d;
+    name, contract, floor, vol24h: vol24h.toFixed(4), volumeRatio,
+    sales24h, listings, supply, listingPct, uniqueBuyers, buyerSellerRatio,
+    holderConcentration, holdings, floorTrend
+  };
 
   const { score, verdict, reasons } = scoreSignal(d);
-  const alerts = buildAlerts(floor, holdings, score, getStopLoss());
+  const alerts = buildAlerts(floor, holdings, score, verdict, getStopLoss(), floorTrend);
   return { ...d, score, verdict, reasons, alerts };
 }
 
+/* ============================================================
+   FETCH ALL COLLECTIONS
+   ============================================================ */
 async function fetchAll() {
   const key = getKey();
-  if (!key) { alert('Please enter your Moralis API key first.'); return; }
+  if (!key) {
+    showWarning('Please paste your Moralis API key first.');
+    return;
+  }
+  if (!getWallet() || getWallet() === '0x') {
+    showWarning('Please enter a valid wallet address.');
+    return;
+  }
 
-  document.getElementById('status-dot').style.background = 'var(--amber)';
-  document.getElementById('status-dot').style.boxShadow = '0 0 8px var(--amber)';
-  document.getElementById('status-text').textContent = 'Fetching...';
-  document.getElementById('dashboard').innerHTML = '<div class="loading"><div class="loading-text">Fetching live data...</div></div>';
+  const btn = document.getElementById('refresh-btn');
+  btn.disabled = true;
+  setStatus('loading', 'Fetching...');
+  document.getElementById('dashboard').innerHTML = `
+    <div class="loading">
+      <div class="loading-text">LOADING DATA...</div>
+      <div class="loading-sub">Hitting Moralis endpoints — please wait</div>
+    </div>`;
 
   const results = {};
   for (const [name, contract] of Object.entries(COLLECTIONS)) {
-    try { results[name] = await fetchCollection(name, contract); }
-    catch(e) { results[name] = { error: e.message, name }; }
+    try {
+      setStatus('loading', `Fetching ${name}...`);
+      results[name] = await fetchCollection(name, contract);
+    } catch(e) {
+      results[name] = { error: e.message, name };
+    }
   }
 
   state = results;
   renderTabs();
   renderDashboard(activeTab);
 
-  document.getElementById('status-dot').style.background = 'var(--green)';
-  document.getElementById('status-dot').style.boxShadow = '0 0 8px var(--green)';
-  document.getElementById('status-text').textContent = 'Live';
-  document.getElementById('last-updated').textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
+  setStatus('live', 'Live');
+  document.getElementById('last-updated').textContent =
+    `Last refreshed: ${new Date().toLocaleString()}`;
+  btn.disabled = false;
+}
+
+function showWarning(msg) {
+  const el = document.getElementById('warning-banner');
+  el.textContent = '⚠ ' + msg;
+  el.style.display = 'block';
+  setTimeout(() => { el.style.display = 'none'; }, 5000);
+}
+
+function setStatus(state, text) {
+  const dot  = document.getElementById('status-dot');
+  const span = document.getElementById('status-text');
+  dot.className = 'status-dot ' + state;
+  span.textContent = text;
+}
+
+/* ============================================================
+   RENDER
+   ============================================================ */
+function scoreColor(score) {
+  if (score >= 5)  return 'var(--green)';
+  if (score >= 3)  return 'var(--green)';
+  if (score <= -5) return 'var(--red)';
+  if (score <= -2) return 'var(--red)';
+  return 'var(--amber)';
+}
+function verdictBadge(v) {
+  if (v.includes('BUY')) return 'badge-buy';
+  if (v.includes('EXIT')) return 'badge-exit';
+  return 'badge-hold';
+}
+function alertColor(level) {
+  if (level === 'green') return 'var(--green)';
+  if (level === 'red')   return 'var(--red)';
+  if (level === 'amber') return 'var(--amber)';
+  return 'var(--muted)';
 }
 
 function renderTabs() {
   const tabs = document.getElementById('tabs');
-  tabs.innerHTML = Object.keys(COLLECTIONS).map(name => `
-    <button class="tab ${name === activeTab ? 'active' : ''}" onclick="switchTab('${name}')">${name}</button>
-  `).join('') + `<button class="tab tab-add" onclick="alert('Add more collections by editing the COLLECTIONS object in index.html')">+ Add collection</button>`;
+  tabs.innerHTML = Object.keys(COLLECTIONS).map(name => {
+    const d = state[name];
+    let badge = '';
+    if (d && !d.error) {
+      const cls = d.verdict.includes('BUY') ? 'badge-buy' : d.verdict.includes('EXIT') ? 'badge-exit' : 'badge-hold';
+      const sc  = (d.score >= 0 ? '+' : '') + d.score;
+      badge = `<span class="score-badge tab-verdict ${cls}">${sc}</span>`;
+    }
+    return `<button class="tab ${name === activeTab ? 'active' : ''}" onclick="switchTab('${name.replace(/'/g,"\\'")}')">
+      ${name}${badge}
+    </button>`;
+  }).join('') +
+  `<button class="tab" style="color:var(--green);border-color:var(--green-dim);background:var(--green-dim)"
+    onclick="alert('Edit the COLLECTIONS object at the top of the script to add more collections.')">+ Add</button>`;
 }
 
 function switchTab(name) {
@@ -629,172 +997,241 @@ function switchTab(name) {
   renderDashboard(name);
 }
 
-function scoreColor(score) {
-  if (score >= 4) return 'var(--green)';
-  if (score <= -3) return 'var(--red)';
-  return 'var(--amber)';
-}
-
-function verdictBadge(verdict) {
-  if (verdict === 'BUY SIGNAL') return 'badge-buy';
-  if (verdict === 'EXIT RISK') return 'badge-exit';
-  return 'badge-hold';
-}
-
-function alertColor(level) {
-  if (level === 'green') return 'var(--green)';
-  if (level === 'red') return 'var(--red)';
-  if (level === 'amber') return 'var(--amber)';
-  return 'var(--muted)';
-}
-
 function renderDashboard(name) {
   const d = state[name];
   if (!d) return;
   if (d.error) {
-    document.getElementById('dashboard').innerHTML = `<div class="empty"><div>Error loading ${name}: ${d.error}</div></div>`;
+    document.getElementById('dashboard').innerHTML = `
+      <div class="empty">
+        <div class="empty-diamond"></div>
+        <p>Error loading <strong>${name}</strong>:<br>${d.error}<br><br>Check your API key and try again.</p>
+      </div>`;
     return;
   }
 
-  const sc = scoreColor(d.score);
-  const vr = Math.min(d.volumeRatio, 5);
-  const vrPct = (vr / 5 * 100).toFixed(0);
-  const vrColor = vr >= 3 ? 'var(--green)' : vr >= 1 ? 'var(--amber)' : 'var(--red)';
+  const sc     = scoreColor(d.score);
+  const vr     = Math.min(d.volumeRatio, 6);
+  const vrPct  = (vr / 6 * 100).toFixed(0);
+  const vrColor= vr >= 2 ? 'var(--green)' : vr >= 0.8 ? 'var(--amber)' : 'var(--red)';
 
-  const breakdownHTML = d.reasons.map(([label, pts, kind]) => {
-    const c = kind === 'buy' ? 'var(--green)' : kind === 'sell' ? 'var(--red)' : 'var(--muted)';
-    const barW = Math.abs(pts) / 2 * 100;
+  /* Score bar: map -10..+10 to 0..100% */
+  const scorePct  = ((d.score + 10) / 20 * 100).toFixed(0);
+  const scoreBarBg = d.score >= 3 ? 'var(--green)' : d.score <= -2 ? 'var(--red)' : 'var(--amber)';
+
+  /* Breakdown */
+  const maxWeight = 2;
+  const breakdownHTML = d.reasons.map(([label, pts, kind, tip]) => {
+    const c    = kind === 'buy' ? 'var(--green)' : kind === 'sell' ? 'var(--red)' : 'var(--muted)';
+    const barW = Math.abs(pts) / maxWeight * 100;
     return `
-      <div class="breakdown-row">
+      <div class="breakdown-row" title="${tip || ''}">
         <span class="breakdown-label">${label}</span>
-        <div class="breakdown-bar-wrap"><div class="breakdown-bar" style="width:${barW}%;background:${c}"></div></div>
+        <div class="breakdown-bar-wrap">
+          <div class="breakdown-bar" style="width:${barW}%;background:${c}"></div>
+        </div>
         <span class="breakdown-pts" style="color:${c}">${pts > 0 ? '+' : ''}${pts}</span>
       </div>`;
   }).join('');
 
-  const alertsHTML = d.alerts.length ? d.alerts.map(a => `
+  /* Alerts */
+  const alertsHTML = d.alerts.map(a => `
     <div class="alert-item">
-      <div class="alert-dot" style="background:${alertColor(a.level)};box-shadow:0 0 6px ${alertColor(a.level)}"></div>
-      <div>
+      <span class="alert-icon">${a.icon || '◆'}</span>
+      <div class="alert-body">
         <div class="alert-type" style="color:${alertColor(a.level)}">${a.type}</div>
         <div class="alert-text">${a.text}</div>
         <div class="alert-time">${a.time}</div>
       </div>
-    </div>`).join('') : '<div style="color:var(--muted);font-size:13px;padding:.5rem 0">No alerts triggered yet.</div>';
+    </div>`).join('');
 
+  /* Positions */
   const positionsHTML = d.holdings.length ? d.holdings.map(h => {
     const entry = h.price;
     if (!entry) return `
       <div class="position-row">
         <span class="pos-token">#${h.tokenId}</span>
-        <span style="color:var(--muted);font-size:12px">Set manual price in config to track P&L</span>
+        <div style="flex:1">
+          <div style="color:var(--muted);font-size:11px;font-family:var(--mono)">Entry price unknown — set manual price in config</div>
+          <div class="pos-method">${h.method} · ${h.date || 'date unknown'}</div>
+        </div>
       </div>`;
-    const mult = d.floor / entry;
-    const pnl = (mult - 1) * 100;
-    const pc = pnl >= 0 ? 'var(--green)' : 'var(--red)';
+
+    const mult   = d.floor / entry;
+    const pnlPct = (mult - 1) * 100;
+    const pnlEth = (d.floor - entry);
+    const pc     = pnlPct >= 0 ? 'var(--green)' : 'var(--red)';
     const targets = Object.values(PROFIT_TIERS).map(m => entry * m);
-    const maxPrice = Math.max(d.floor, ...targets) * 1.05;
-    const entryPct = (entry / maxPrice * 100).toFixed(1);
-    const floorPct = (d.floor / maxPrice * 100).toFixed(1);
+    const maxPrice = Math.max(d.floor, ...targets, entry) * 1.08;
+    const entryPct = Math.min(entry / maxPrice * 100, 98).toFixed(1);
+    const floorPct = Math.min(d.floor / maxPrice * 100, 98).toFixed(1);
+    const left  = Math.min(parseFloat(entryPct), parseFloat(floorPct));
+    const width = Math.abs(parseFloat(floorPct) - parseFloat(entryPct));
 
     const tierMarkers = Object.entries(PROFIT_TIERS).map(([label, m]) => {
-      const pct = (entry * m / maxPrice * 100).toFixed(1);
-      return `<span class="pos-marker" style="left:${pct}%;color:var(--amber)">${label}</span>`;
+      const pct = Math.min(entry * m / maxPrice * 100, 96).toFixed(1);
+      const hit = d.floor >= entry * m;
+      return `<span style="position:absolute;left:${pct}%;transform:translateX(-50%);color:${hit ? 'var(--green)' : 'var(--amber)'};font-size:9px;font-family:var(--mono);top:0;white-space:nowrap">${label}</span>`;
     }).join('');
 
     return `
       <div class="position-row">
-        <span class="pos-token">#${h.tokenId}</span>
+        <div>
+          <div class="pos-token">#${h.tokenId}</div>
+          <div class="pos-method">${h.method}</div>
+        </div>
         <div style="flex:1">
-          <div style="position:relative;height:6px;background:rgba(255,255,255,0.06);border-radius:3px;margin-bottom:4px">
-            <div style="position:absolute;left:${Math.min(entryPct,floorPct)}%;width:${Math.abs(floorPct-entryPct)}%;height:6px;background:${pc};border-radius:3px;opacity:.6"></div>
-            <div style="position:absolute;left:calc(${entryPct}% - 4px);top:-2px;width:10px;height:10px;border-radius:50%;background:var(--blue);border:2px solid var(--bg)"></div>
-            <div style="position:absolute;left:calc(${floorPct}% - 4px);top:-2px;width:10px;height:10px;border-radius:50%;background:${pc};border:2px solid var(--bg)"></div>
+          <div style="position:relative;height:6px;background:rgba(255,255,255,0.06);border-radius:3px;margin-bottom:6px">
+            <div style="position:absolute;left:${left}%;width:${width}%;height:6px;background:${pc};border-radius:3px;opacity:.55"></div>
+            <div style="position:absolute;left:calc(${entryPct}% - 5px);top:-3px;width:12px;height:12px;border-radius:50%;background:var(--blue);border:2px solid var(--bg);box-shadow:0 0 6px var(--blue)"></div>
+            <div style="position:absolute;left:calc(${floorPct}% - 5px);top:-3px;width:12px;height:12px;border-radius:50%;background:${pc};border:2px solid var(--bg);box-shadow:0 0 6px ${pc}"></div>
           </div>
-          <div style="position:relative;height:18px;font-size:9px;font-family:var(--mono)">
-            <span style="position:absolute;left:${entryPct}%;transform:translateX(-50%);color:var(--blue)">entry<br>${entry.toFixed(4)}</span>
-            ${tierMarkers}
+          <div style="position:relative;height:18px">${tierMarkers}</div>
+          <div style="display:flex;gap:16px;margin-top:10px;font-size:10px;font-family:var(--mono);color:var(--muted)">
+            <span>Entry <strong style="color:var(--blue)">${entry.toFixed(4)} ETH</strong></span>
+            <span>Floor <strong style="color:${pc}">${d.floor > 0 ? d.floor.toFixed(4) : '—'} ETH</strong></span>
+            <span>P&amp;L <strong style="color:${pc}">${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(1)}% (${pnlEth >= 0 ? '+' : ''}${pnlEth.toFixed(4)} ETH)</strong></span>
           </div>
         </div>
-        <span class="pos-pnl" style="color:${pc}">${pnl >= 0 ? '+' : ''}${pnl.toFixed(0)}%</span>
+        <div>
+          <div class="pos-pnl" style="color:${pc}">${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(0)}%</div>
+        </div>
       </div>`;
-  }).join('') : `<div style="color:var(--muted);font-size:13px;padding:.5rem 0">You don't hold any ${name} NFTs.</div>`;
+  }).join('')
+  : `<div style="color:var(--muted);font-size:12px;font-family:var(--mono);padding:.5rem 0">You do not hold any ${name} NFTs in the tracked wallet.</div>`;
+
+  /* Floor trend mini chart */
+  const trend = d.floorTrend || [];
+  let trendHTML = '';
+  if (trend.length >= 2) {
+    const maxAvg = Math.max(...trend.map(t => t.avg));
+    trendHTML = `
+      <div style="margin-top:.75rem">
+        <div style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-bottom:6px">RECENT SALE PRICE TREND</div>
+        <div style="display:flex;align-items:flex-end;gap:3px;height:36px">
+          ${trend.map(t => {
+            const h = Math.max((t.avg / maxAvg) * 36, 4);
+            const first = trend[0].avg;
+            const c = t.avg >= first ? 'var(--green)' : 'var(--red)';
+            return `<div style="flex:1;height:${h}px;background:${c};border-radius:2px 2px 0 0;opacity:.7;position:relative" title="${t.day}: ${t.avg.toFixed(4)} ETH"></div>`;
+          }).join('')}
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:9px;color:var(--muted);font-family:var(--mono)">
+          <span>${trend[0]?.day || ''}</span><span>${trend[trend.length-1]?.day || ''}</span>
+        </div>
+      </div>`;
+  }
+
+  /* Metric card class helper */
+  const metricClass = (cond, condBad) =>
+    cond ? 'metric-up' : condBad ? 'metric-down' : 'metric-neutral';
 
   document.getElementById('dashboard').innerHTML = `
     <div class="metrics-grid">
-      <div class="metric-card">
-        <div class="metric-label">Floor price</div>
-        <div class="metric-value">${d.floor > 0 ? d.floor.toFixed(4) : '—'} <span style="font-size:13px;color:var(--muted)">ETH</span></div>
+      <div class="metric-card ${metricClass(d.floor > 0, false)}">
+        <div class="metric-label">Floor Price</div>
+        <div class="metric-value">${d.floor > 0 ? d.floor.toFixed(4) : '—'}<span class="metric-unit"> ETH</span></div>
       </div>
-      <div class="metric-card">
+      <div class="metric-card ${metricClass(d.volumeRatio >= 2, d.volumeRatio < 0.5)}">
         <div class="metric-label">Volume 24h</div>
-        <div class="metric-value">${d.vol24h} <span style="font-size:13px;color:var(--muted)">ETH</span></div>
-        <div class="metric-change ${d.volumeRatio >= 1.5 ? 'up' : d.volumeRatio < 0.5 ? 'down' : 'neutral'}">${d.volumeRatio}x daily avg</div>
+        <div class="metric-value">${d.vol24h}<span class="metric-unit"> ETH</span></div>
+        <div class="metric-change ${d.volumeRatio >= 2 ? 'up' : d.volumeRatio < 0.5 ? 'down' : 'neutral'}">${d.volumeRatio}x daily avg</div>
       </div>
-      <div class="metric-card">
-        <div class="metric-label">Unique buyers</div>
+      <div class="metric-card ${metricClass(d.uniqueBuyers >= 10, d.uniqueBuyers < 3)}">
+        <div class="metric-label">Unique Buyers</div>
         <div class="metric-value">${d.uniqueBuyers}</div>
-        <div class="metric-change neutral">last 50 transfers</div>
+        <div class="metric-change neutral">last 100 transfers</div>
       </div>
-      <div class="metric-card">
-        <div class="metric-label">Active listings</div>
+      <div class="metric-card ${metricClass(d.listingPct < 5, d.listingPct > 20)}">
+        <div class="metric-label">Listed Supply</div>
         <div class="metric-value">${d.listings}</div>
         <div class="metric-change ${d.listingPct < 5 ? 'up' : d.listingPct > 20 ? 'down' : 'neutral'}">${d.listingPct}% of supply</div>
       </div>
-      <div class="metric-card">
+      <div class="metric-card ${metricClass(d.sales24h >= 10, d.sales24h < 2)}">
         <div class="metric-label">Sales 24h</div>
         <div class="metric-value">${d.sales24h}</div>
+        <div class="metric-change neutral">transactions</div>
       </div>
-      <div class="metric-card">
-        <div class="metric-label">You hold</div>
+      <div class="metric-card ${metricClass(d.buyerSellerRatio >= 1.5, d.buyerSellerRatio < 0.8)}">
+        <div class="metric-label">Buyer/Seller</div>
+        <div class="metric-value">${d.buyerSellerRatio}<span class="metric-unit">x</span></div>
+        <div class="metric-change neutral">ratio</div>
+      </div>
+      <div class="metric-card metric-neutral">
+        <div class="metric-label">You Hold</div>
         <div class="metric-value">${d.holdings.length}</div>
         <div class="metric-change neutral">${name} NFTs</div>
+      </div>
+      <div class="metric-card ${metricClass(d.holderConcentration < 10, d.holderConcentration >= 25)}">
+        <div class="metric-label">Top Holder %</div>
+        <div class="metric-value">${d.holderConcentration}<span class="metric-unit">%</span></div>
+        <div class="metric-change ${d.holderConcentration < 10 ? 'up' : d.holderConcentration >= 25 ? 'down' : 'neutral'}">of recent tx</div>
       </div>
     </div>
 
     <div class="main-grid">
+
       <div class="card">
-        <div class="card-title">◈ Signal score</div>
+        <div class="card-title"><span class="card-title-icon"></span>Signal Score</div>
         <div class="score-display">
           <div class="score-num" style="color:${sc}">${d.score >= 0 ? '+' : ''}${d.score}</div>
           <div class="score-right">
             <div class="score-badge ${verdictBadge(d.verdict)}">${d.verdict}</div>
-            <div class="score-sub">out of +6 max</div>
-            <div class="score-sub" style="margin-top:4px">buy ≥ +4 · exit ≤ −3</div>
+            <div class="score-sub">range: −10 to +10</div>
+            <div class="score-sub" style="margin-top:4px">buy ≥ +3 · exit ≤ −2</div>
+          </div>
+        </div>
+        <div class="score-bar-wrap">
+          <div class="score-bar-track">
+            <div class="score-bar-fill" style="width:${scorePct}%;background:${scoreBarBg}"></div>
+          </div>
+          <div class="score-bar-labels">
+            <span style="color:var(--red)">−10</span>
+            <span>0</span>
+            <span style="color:var(--green)">+10</span>
           </div>
         </div>
       </div>
 
       <div class="card">
-        <div class="card-title">◈ Volume vs daily avg</div>
+        <div class="card-title"><span class="card-title-icon"></span>Volume vs Daily Average</div>
         <div class="vol-bar-wrap">
           <div class="vol-bar" style="width:${vrPct}%;background:${vrColor}"></div>
-          <div class="vol-marker" style="left:60%"></div>
         </div>
         <div class="vol-labels">
-          <span>0x</span><span style="color:var(--amber)">1x avg</span><span style="color:var(--green)">3x buy</span><span>5x+</span>
+          <span>0x</span><span>1x</span><span style="color:var(--green)">4x+</span>
         </div>
-        <div style="margin-top:.75rem;font-family:var(--mono);font-size:20px;font-weight:700;color:${vrColor}">${d.volumeRatio}x</div>
+        <div style="margin-top:.9rem;font-family:var(--mono);font-size:22px;font-weight:700;color:${vrColor}">${d.volumeRatio}x</div>
+        <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:4px">
+          ${d.volumeRatio >= 4 ? 'Strong accumulation — bullish signal' :
+            d.volumeRatio >= 2 ? 'Above-average activity' :
+            d.volumeRatio >= 0.8 ? 'Normal trading range' :
+            'Low activity — weak demand'}
+        </div>
+        ${trendHTML}
       </div>
 
       <div class="card">
-        <div class="card-title">◈ Signal breakdown</div>
+        <div class="card-title"><span class="card-title-icon"></span>Signal Breakdown (${d.reasons.length} factors)</div>
         ${breakdownHTML}
+        <div class="data-note">Hover each row for more detail. Score range is −10 to +10 across all factors.</div>
       </div>
 
       <div class="card">
-        <div class="card-title">◈ Exit alerts</div>
+        <div class="card-title"><span class="card-title-icon"></span>Alerts &amp; Actions</div>
         ${alertsHTML}
       </div>
 
       <div class="card full-card">
-        <div class="card-title">◈ Your positions vs targets</div>
+        <div class="card-title"><span class="card-title-icon"></span>Your Positions vs Targets</div>
         ${positionsHTML}
+        ${d.holdings.length > 0 ? `<div class="data-note" style="margin-top:1rem">Blue dot = entry price. Colored dot = current floor. Amber labels = profit targets. P&amp;L shown in % and ETH.</div>` : ''}
       </div>
+
     </div>
   `;
 }
 
+/* Init */
 renderTabs();
 </script>
 </body>
