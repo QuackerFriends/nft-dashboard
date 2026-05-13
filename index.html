@@ -512,12 +512,28 @@ function apiHeaders() {
 }
 
 async function apiGet(url, params = {}) {
+  /* Build URL manually so array params encode correctly.
+     Arrays are sent as: key[0]=val0&key[1]=val1 (Moralis standard).
+     Single values appended normally. Max limit enforced at 100. */
   const u = new URL(url);
-  Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== '') u.searchParams.append(k, v); });
+  for (const [k, v] of Object.entries(params)) {
+    if (v === undefined || v === '') continue;
+    if (k === 'limit') {
+      u.searchParams.append(k, Math.min(parseInt(v), 100));
+    } else if (Array.isArray(v)) {
+      v.forEach((item, i) => u.searchParams.append(k + '[' + i + ']', item));
+    } else {
+      u.searchParams.append(k, v);
+    }
+  }
   const r = await fetch(u.toString(), { headers: apiHeaders() });
-  if (r.status === 401) throw new Error('Invalid API key');
+  if (r.status === 401) throw new Error('Invalid API key — check your Moralis key');
+  if (r.status === 400) {
+    const body = await r.json().catch(() => ({}));
+    throw new Error('HTTP 400: ' + (body.message || 'bad request'));
+  }
   if (r.status === 429) throw new Error('Rate limited — wait a moment');
-  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  if (!r.ok) throw new Error('HTTP ' + r.status);
   return r.json();
 }
 
@@ -601,13 +617,23 @@ async function fetchSalePrices(contract, days = 7) {
   }
 }
 
-/* Collection transfers — buyer/seller analysis + volume fallback */
-async function fetchCollectionTransfers(contract, limit = 200) {
+/* Collection transfers — buyer/seller analysis + volume.
+   Paginate up to 2 pages (200 tx) for better coverage. */
+async function fetchCollectionTransfers(contract) {
   const url = `${BASE}/nft/${contract}/transfers`;
+  const all = [];
   try {
-    const d = await apiGet(url, { chain: 'eth', limit });
-    logApi('coll-transfers', 'ok', (d.result||[]).length + ' transfers');
-    return d.result || [];
+    let cursor = null;
+    for (let page = 0; page < 2; page++) {
+      const params = { chain: 'eth', limit: 100 };
+      if (cursor) params.cursor = cursor;
+      const d = await apiGet(url, params);
+      all.push(...(d.result || []));
+      cursor = d.cursor || null;
+      if (!cursor || (d.result||[]).length < 100) break;
+    }
+    logApi('coll-transfers', 'ok', all.length + ' transfers');
+    return all;
   } catch(e) {
     logApi('coll-transfers', 'fail:' + e.message, '');
     return [];
@@ -619,10 +645,10 @@ async function fetchHoldings(wallet, contract) {
   const url = `${BASE}/${wallet}/nft`;
   try {
     const d = await apiGet(url, {
-      chain: 'eth', 'token_addresses[]': contract,
+      chain: 'eth', token_addresses: [contract],
       limit: 100, normalizeMetadata: 'false'
     });
-    logApi('holdings', 'ok', (d.result||[]).length + ' tokens');
+    logApi('holdings', 'ok', (d.result||[]).length + ' tokens held');
     return (d.result || []).map(i => i.token_id);
   } catch(e) {
     logApi('holdings', 'fail:' + e.message, '');
@@ -630,40 +656,44 @@ async function fetchHoldings(wallet, contract) {
   }
 }
 
-/* Wallet transfer history filtered to this contract — entry price source.
-   Moralis accepts contract_addresses[] bracket notation.
-   We fetch unfiltered and filter client-side as a reliable fallback. */
+/* Wallet transfer history for entry price resolution.
+   Moralis contract_addresses param is an array: sent as contract_addresses[0]=...
+   Max limit per call is 100; we paginate up to 3 pages (300 tx) to find older purchases. */
 async function fetchWalletTransfers(wallet, contract) {
   const url = `${BASE}/${wallet}/nft/transfers`;
   const contractLower = contract.toLowerCase();
+  const allResults = [];
 
-  /* Attempt 1: filtered by contract (saves CUs if it works) */
+  /* Strategy 1: filtered request (saves CUs) */
   try {
-    const d = await apiGet(url, {
-      chain: 'eth', 'contract_addresses[]': contract, limit: 500
-    });
-    const results = d.result || [];
-    if (results.length > 0) {
-      logApi('wallet-transfers', 'ok', results.length + ' tx (filtered)');
-      return results;
+    let cursor = null;
+    for (let page = 0; page < 3; page++) {
+      const params = { chain: 'eth', contract_addresses: [contract], limit: 100 };
+      if (cursor) params.cursor = cursor;
+      const d = await apiGet(url, params);
+      const results = d.result || [];
+      allResults.push(...results);
+      cursor = d.cursor || null;
+      if (!cursor || results.length < 100) break;
     }
-    /* 0 results filtered — fall through to unfiltered */
-    logApi('wallet-transfers', 'zero-filtered', 'retrying unfiltered');
+    if (allResults.length > 0) {
+      logApi('wallet-transfers', 'ok', allResults.length + ' tx (filtered, ' + allResults.filter(t => t.token_address?.toLowerCase()===contractLower).length + ' this contract)');
+      return allResults.filter(t => t.token_address?.toLowerCase() === contractLower);
+    }
+    logApi('wallet-transfers', 'zero-filtered', 'retrying unfiltered fallback');
   } catch(e) {
     logApi('wallet-transfers', 'fail:' + e.message, 'retrying unfiltered');
   }
 
-  /* Attempt 2: fetch all wallet NFT transfers, filter client-side */
+  /* Strategy 2: unfiltered, client-side filter — no extra params that could cause 400 */
   try {
-    const d = await apiGet(url, { chain: 'eth', limit: 500 });
+    const d = await apiGet(url, { chain: 'eth', limit: 100 });
     const all = d.result || [];
-    const filtered = all.filter(t =>
-      t.token_address?.toLowerCase() === contractLower
-    );
-    logApi('wallet-transfers-all', 'ok', filtered.length + '/' + all.length + ' matched contract');
+    const filtered = all.filter(t => t.token_address?.toLowerCase() === contractLower);
+    logApi('wallet-tx-unfiltered', filtered.length > 0 ? 'ok' : 'zero', filtered.length + '/' + all.length + ' matched contract');
     return filtered;
   } catch(e) {
-    logApi('wallet-transfers-all', 'fail:' + e.message, '');
+    logApi('wallet-tx-unfiltered', 'fail:' + e.message, '');
     return [];
   }
 }
@@ -1018,7 +1048,7 @@ async function fetchCollection(name, contract) {
   const [floor, salePricesRaw, collTransfers, tokenIds, supply, walletTx] = await Promise.all([
     fetchFloorPrice(contract),
     fetchSalePrices(contract, 7),
-    fetchCollectionTransfers(contract, 200),
+    fetchCollectionTransfers(contract),
     fetchHoldings(wallet, contract),
     fetchSupply(contract),
     fetchWalletTransfers(wallet, contract)
