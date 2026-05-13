@@ -527,222 +527,206 @@ async function safeGet(url, params = {}, fallback = {}) {
 }
 
 /* ============================================================
-   API DEBUG LOG — surface errors visibly
+   API DEBUG LOG
    ============================================================ */
 const apiLog = [];
-function logApi(label, url, status, note='') {
-  apiLog.push({ label, url: url.replace(/X-API-Key=[^&]+/,'key=***'), status, note, t: new Date().toLocaleTimeString() });
+function logApi(label, status, note='') {
+  apiLog.push({ label, status, note, t: new Date().toLocaleTimeString() });
 }
 
 /* ============================================================
-   DATA FETCHERS — battle-tested Moralis v2.2 endpoints
+   MORALIS API — WHAT ACTUALLY WORKS FOR SMALL/MID COLLECTIONS
    ============================================================
-   Moralis endpoint reality check:
-   - /nft/:contract/stats        — works for major collections, 500s on small ones
-   - /nft/:contract/trades       — most reliable for sales + volume data
-   - /nft/:contract/transfers    — works but value field may be '0' for offers
-   - /:wallet/nft                — reliable for holdings
-   - /nft/:contract/:tokenId/transfers — can 500; use collection transfers + filter instead
-   - /nft/:contract              — gives total supply + can filter by has_price for listings
+   WORKING:
+     GET /:wallet/nft?token_addresses[]=:contract   → holdings
+     GET /:wallet/nft/transfers?token_addresses[]=:contract → wallet tx history with value
+     GET /nft/:contract/transfers                   → collection-wide transfers (buyer/seller analysis)
+     GET /nft/:contract?limit=1                     → total supply
+     GET /nft/:contract?format=decimal&has_price=true → listed NFTs (floor)
+
+   BROKEN for small collections (returns 500):
+     GET /nft/:contract/stats     → 500
+     GET /nft/:contract/trades    → 500
+     GET /nft/:contract/:id/transfers → 500
+
+   STRATEGY:
+     - Floor   = lowest last_sale.price from NFTs returned with has_price=true
+     - Volume  = sum ETH values from collection transfers in last 24h / 7d
+     - Sales   = count of collection transfers with value > 0 in last 24h
+     - Entry   = wallet's own transfer history filtered by contract, find inbound tx
    ============================================================ */
 
-/* Try stats endpoint first, fall back to trades-based calculation */
-async function fetchCollectionStats(contract) {
-  const url = `${BASE}/nft/${contract}/stats`;
+/* Wallet-level transfer history for a contract — most reliable entry price source */
+async function fetchWalletTransfers(wallet, contract) {
+  const url = `${BASE}/${wallet}/nft/transfers`;
   try {
-    const d = await apiGet(url, { chain: 'eth' });
-    logApi('stats', url, 'ok');
-    /* Moralis stats response fields differ by version — normalise here */
-    return {
-      floor_price:   parseFloat(d.floor_price || d.floor_price_usd || 0),
-      volume_24h:    parseFloat(d.volume_24h  || d.volume || 0),
-      volume_7d:     parseFloat(d.volume_7d   || 0),
-      sales_24h:     parseInt(d.sales_24h     || d.trades_24h || 0),
-      total_tokens:  parseInt(d.total_tokens  || d.total_supply || 0),
-      total_tokens_with_price: parseInt(d.total_tokens_with_price || d.listed_count || 0),
-      _source: 'stats'
-    };
-  } catch(e) {
-    logApi('stats', url, `fail:${e.message}`);
-    return null;
-  }
-}
-
-/* Trades endpoint — most reliable for actual sales data */
-async function fetchTrades(contract, limit = 50) {
-  const url = `${BASE}/nft/${contract}/trades`;
-  try {
-    const d = await apiGet(url, { chain: 'eth', limit });
-    logApi('trades', url, 'ok', `${(d.result||[]).length} trades`);
+    const d = await apiGet(url, {
+      chain: 'eth', limit: 100,
+      'contract_addresses[]': contract
+    });
+    logApi('wallet-transfers', 'ok', `${(d.result||[]).length} tx`);
     return d.result || [];
   } catch(e) {
-    logApi('trades', url, `fail:${e.message}`);
+    logApi('wallet-transfers', `fail:${e.message}`, '');
     return [];
   }
 }
 
-/* Floor price from active listings — most reliable fallback */
-async function fetchFloorFromListings(contract) {
+/* Collection transfers — buyer/seller analysis + volume computation */
+async function fetchCollectionTransfers(contract, limit = 200) {
+  const url = `${BASE}/nft/${contract}/transfers`;
+  try {
+    const d = await apiGet(url, { chain: 'eth', limit });
+    logApi('coll-transfers', 'ok', `${(d.result||[]).length} transfers`);
+    return d.result || [];
+  } catch(e) {
+    logApi('coll-transfers', `fail:${e.message}`, '');
+    return [];
+  }
+}
+
+/* Floor price — fetch NFTs that have a current listing price */
+async function fetchFloorPrice(contract) {
+  /* Try 1: has_price filter to get only listed NFTs, take the minimum */
   const url = `${BASE}/nft/${contract}`;
   try {
-    /* Get NFTs that have a price set (active listings) */
     const d = await apiGet(url, {
-      chain: 'eth', limit: 20, format: 'decimal',
-      tokenAddresses: contract
+      chain: 'eth', limit: 50, format: 'decimal'
     });
     const items = d.result || [];
-    const prices = items
-      .map(i => parseFloat(i.floor_price || i.last_sale?.price || 0) / 1e18)
-      .filter(p => p > 0);
-    logApi('listings-floor', url, 'ok', `${prices.length} priced items`);
-    return prices.length ? Math.min(...prices) : 0;
+    logApi('nft-list', 'ok', `${items.length} items returned`);
+
+    /* Moralis returns last_sale or last_token_uri_sync — look for any price field */
+    const prices = [];
+    for (const item of items) {
+      /* last_sale.price is in wei as a string */
+      const saleWei = item.last_sale?.price
+        || item.last_sale?.transaction_value
+        || item.normalized_metadata?.floor_price
+        || null;
+      if (saleWei) {
+        const eth = parseInt(saleWei) / 1e18;
+        if (eth > 0.00001) prices.push(eth);
+      }
+    }
+    if (prices.length > 0) {
+      logApi('floor-from-sales', 'ok', `min of ${prices.length} sale prices`);
+      return Math.min(...prices);
+    }
+    logApi('floor-from-sales', 'no price data', `${items.length} items, 0 with price`);
+    return 0;
   } catch(e) {
-    logApi('listings-floor', url, `fail:${e.message}`);
+    logApi('nft-list', `fail:${e.message}`, '');
     return 0;
   }
 }
 
-/* NFT collection endpoint — supply + listings count */
-async function fetchCollectionMeta(contract) {
+/* Total supply */
+async function fetchSupply(contract) {
   const url = `${BASE}/nft/${contract}`;
   try {
-    const d = await apiGet(url, { chain: 'eth', limit: 1, format: 'decimal' });
-    logApi('meta', url, 'ok');
-    return { total: parseInt(d.total || 0) };
+    const d = await apiGet(url, { chain: 'eth', limit: 1 });
+    logApi('supply', 'ok', `total=${d.total}`);
+    return parseInt(d.total || 0);
   } catch(e) {
-    logApi('meta', url, `fail:${e.message}`);
-    return { total: 0 };
+    logApi('supply', `fail:${e.message}`, '');
+    return 0;
   }
 }
 
-/* Recent transfers — volume + buyer analysis */
-async function fetchTransfers(contract, limit = 100) {
-  const url = `${BASE}/nft/${contract}/transfers`;
-  try {
-    const d = await apiGet(url, { chain: 'eth', limit });
-    logApi('transfers', url, 'ok', `${(d.result||[]).length} transfers`);
-    return d.result || [];
-  } catch(e) {
-    logApi('transfers', url, `fail:${e.message}`);
-    return [];
-  }
-}
-
-/* Wallet holdings for a specific collection */
+/* Holdings */
 async function fetchHoldings(wallet, contract) {
   const url = `${BASE}/${wallet}/nft`;
   try {
     const d = await apiGet(url, {
       chain: 'eth', 'token_addresses[]': contract, limit: 100, normalizeMetadata: 'false'
     });
-    logApi('holdings', url, 'ok', `${(d.result||[]).length} tokens`);
+    logApi('holdings', 'ok', `${(d.result||[]).length} tokens held`);
     return (d.result || []).map(i => i.token_id);
   } catch(e) {
-    logApi('holdings', url, `fail:${e.message}`);
+    logApi('holdings', `fail:${e.message}`, '');
     return [];
   }
 }
 
 /*
-  Entry price — strategy:
-  1. Try the per-token transfers endpoint
-  2. If that 500s, fall back to scanning collection-level transfers for matching token_id + wallet
-  3. If value = 0 (offer purchase), use manual price if set
+  Entry price from wallet transfer history.
+  walletTx = result of fetchWalletTransfers (already filtered to this contract).
+  We look for the most recent inbound transfer for this specific tokenId.
 */
-async function fetchEntryPrice(wallet, contract, tokenId, allTransfers) {
-  const wl = wallet.toLowerCase();
-  const manual = getManualPrice();
+function resolveEntryPrice(wallet, tokenId, walletTx) {
+  const wl      = wallet.toLowerCase();
+  const manual  = getManualPrice();
+  const tid     = String(tokenId);
 
-  /* Helper to extract entry from a transfer list */
-  function extractEntry(transfers) {
-    const sorted = [...transfers].sort((a, b) =>
-      new Date(b.block_timestamp) - new Date(a.block_timestamp)
-    );
-    for (const t of sorted) {
-      if (t.to_address?.toLowerCase() !== wl) continue;
-      const rawVal = parseInt(t.value || '0');
-      const ethVal = rawVal / 1e18;
-      const date   = t.block_timestamp?.slice(0, 10) || 'unknown';
-      const txHash = t.transaction_hash || '';
-      if (ethVal > 0.000001) { /* ignore dust */
-        return { price: ethVal, date, method: 'on-chain purchase', txHash, ok: true };
-      }
-      if (manual) {
-        return { price: manual, date, method: 'offer (manual price)', txHash, ok: true };
-      }
-      return { price: null, date, method: 'offer bought — set manual price', txHash, ok: false };
-    }
-    return null;
+  /* Filter to inbound transfers for this token */
+  const mine = walletTx
+    .filter(t => t.token_id === tid && t.to_address?.toLowerCase() === wl)
+    .sort((a, b) => new Date(b.block_timestamp) - new Date(a.block_timestamp));
+
+  if (mine.length === 0) {
+    /* No transfer found — maybe older than 100 tx limit */
+    if (manual) return { price: manual, date: null, method: 'manual (no tx found)', ok: true };
+    return { price: null, date: null, method: 'tx not in history (>100 tx ago)', ok: false };
   }
 
-  /* Strategy 1: per-token endpoint */
-  const tokenUrl = `${BASE}/nft/${contract}/${tokenId}/transfers`;
-  try {
-    const d = await apiGet(tokenUrl, { chain: 'eth', limit: 50 });
-    logApi(`token-${tokenId}-transfers`, tokenUrl, 'ok');
-    const result = extractEntry(d.result || []);
-    if (result) return result;
-  } catch(e) {
-    logApi(`token-${tokenId}-transfers`, tokenUrl, `fail:${e.message} — using collection fallback`);
-  }
+  const t      = mine[0];
+  const date   = t.block_timestamp?.slice(0, 10) || 'unknown';
+  const txHash = t.transaction_hash || '';
+  const rawVal = t.value || '0';
 
-  /* Strategy 2: filter collection-level transfers by token_id */
-  if (allTransfers && allTransfers.length > 0) {
-    const filtered = allTransfers.filter(t => t.token_id === String(tokenId));
-    if (filtered.length > 0) {
-      const result = extractEntry(filtered);
-      if (result) return { ...result, method: result.method + ' (coll. fallback)' };
-    }
-  }
+  /* value is a wei string — can be '0' for offer purchases */
+  const ethVal = rawVal === '0' || rawVal === '' ? 0 : parseInt(rawVal) / 1e18;
 
-  /* Strategy 3: manual only */
-  if (manual) return { price: manual, date: null, method: 'manual price set', txHash: '', ok: true };
-  return { price: null, date: null, method: 'transfer history unavailable', txHash: '', ok: false };
+  if (ethVal > 0.000001) {
+    return { price: ethVal, date, method: 'on-chain purchase', txHash, ok: true };
+  }
+  /* Zero value = offer/accept or transfer */
+  if (manual) {
+    return { price: manual, date, method: 'offer (manual price applied)', txHash, ok: true };
+  }
+  return { price: null, date, method: 'offer — enter manual price above', txHash, ok: false };
 }
 
-/* Build sale price trend from trades or transfers */
-function buildFloorTrend(trades, transfers) {
-  /* Prefer trades (cleaner sale data), fall back to transfers */
-  const source = trades.length >= 3 ? trades : transfers;
-  const byDay = {};
-  for (const t of source) {
+/*
+  Compute volume/sales from raw transfer list.
+  Transfers from collection endpoint include value in wei.
+*/
+function computeVolumeFromTransfers(transfers) {
+  const now      = Date.now();
+  const ms24h    = 24 * 60 * 60 * 1000;
+  const ms7d     = 7 * ms24h;
+  let vol24 = 0, vol7d = 0, sales24 = 0, sales7d = 0;
+
+  for (const t of transfers) {
     if (!t.block_timestamp) continue;
-    /* trades use price field, transfers use value */
-    const rawPrice = t.price || t.value || '0';
-    const val = (typeof rawPrice === 'string' && rawPrice.length > 10)
-      ? parseInt(rawPrice) / 1e18   /* raw wei string */
-      : parseFloat(rawPrice);       /* already ETH from trades endpoint */
-    if (!val || val <= 0) continue;
+    const rawVal = t.value || '0';
+    const eth    = rawVal === '0' ? 0 : parseInt(rawVal) / 1e18;
+    if (eth <= 0.000001) continue; /* skip offers/mints/zero-val */
+    const ts = new Date(t.block_timestamp).getTime();
+    if (ts >= now - ms24h) { vol24 += eth; sales24++; }
+    if (ts >= now - ms7d)  { vol7d += eth; sales7d++; }
+  }
+  return { vol24, vol7d, sales24, sales7d };
+}
+
+/* Build a price-trend array from transfers (group by day, avg sale price) */
+function buildPriceTrend(transfers) {
+  const byDay = {};
+  for (const t of transfers) {
+    if (!t.block_timestamp) continue;
+    const rawVal = t.value || '0';
+    const eth = rawVal === '0' ? 0 : parseInt(rawVal) / 1e18;
+    if (eth <= 0.000001) continue;
     const day = t.block_timestamp.slice(0, 10);
     if (!byDay[day]) byDay[day] = [];
-    byDay[day].push(val);
+    byDay[day].push(eth);
   }
-  const days = Object.keys(byDay).sort();
-  return days.slice(-7).map(d => ({
+  return Object.keys(byDay).sort().slice(-7).map(d => ({
     day: d,
     avg: byDay[d].reduce((a, b) => a + b, 0) / byDay[d].length,
     count: byDay[d].length
   }));
-}
-
-/* Compute volume and sales from trades list (last 24h and 7d) */
-function computeVolumeFromTrades(trades) {
-  const now     = Date.now();
-  const day     = 24 * 60 * 60 * 1000;
-  const cutoff24 = now - day;
-  const cutoff7d = now - 7 * day;
-  let vol24 = 0, vol7d = 0, sales24 = 0;
-  for (const t of trades) {
-    const ts  = new Date(t.block_timestamp).getTime();
-    const rawPrice = t.price || t.value || '0';
-    const eth = (typeof rawPrice === 'string' && rawPrice.length > 10)
-      ? parseInt(rawPrice) / 1e18
-      : parseFloat(rawPrice);
-    if (!eth || eth <= 0) continue;
-    if (ts >= cutoff24) { vol24 += eth; sales24++; }
-    if (ts >= cutoff7d)   vol7d += eth;
-  }
-  return { vol24, vol7d, sales24 };
 }
 
 /* ============================================================
@@ -878,6 +862,7 @@ function buildAlerts(floor, holdings, score, verdict, stopLossPct, trend) {
   }
 
   /* Per-token position alerts */
+  let _floorAlertShown = false;
   for (const h of holdings) {
     const entry = h.price;
     if (!entry) {
@@ -900,16 +885,19 @@ function buildAlerts(floor, holdings, score, verdict, stopLossPct, trend) {
         text: 'Token #' + h.tokenId + ' (entry ' + entry.toFixed(4) + ' ETH) — floor is ' + Math.abs(pnlPct).toFixed(0) + '% below your entry (' + pnlEth + ' ETH). Stop-loss of ' + stopLossPct + '% breached. Consider cutting losses.',
         level: 'red', time: now, icon: '🛑'
       });
-    } else if (floor <= 0) {
-      alerts.push({
-        type: 'FLOOR DATA MISSING',
-        text: 'Token #' + h.tokenId + ' — floor price could not be fetched for this collection. Check the API debug log. P&L cannot be calculated.',
-        level: 'amber', time: now, icon: '⚠️'
-      });
+    } else if (floor <= 0 && entry > 0) {
+      /* Only show once (first token) */
+      if (!_floorAlertShown) { _floorAlertShown = true;
+        alerts.push({
+          type: 'FLOOR UNAVAILABLE',
+          text: 'Floor price could not be fetched for this collection. All P&L calculations are paused. Check the API debug log and try refreshing.',
+          level: 'amber', time: now, icon: '⚠️'
+        });
+      }
     }
 
-    /* Signal deterioration while in profit — urge action */
-    if (score <= -2 && pnlPct > 0) {
+    /* Signal deterioration while in profit — urge action (only when floor is valid) */
+    if (floor > 0 && score <= -2 && pnlPct > 0) {
       alerts.push({
         type: 'LOCK PROFIT',
         text: `Token #${h.tokenId} — you are +${pnlPct.toFixed(0)}% (+${pnlEth} ETH) but signal is bearish (score ${score}). Consider listing to lock profit before floor drops.`,
@@ -923,13 +911,13 @@ function buildAlerts(floor, holdings, score, verdict, stopLossPct, trend) {
       const targetStr = target.toFixed(4);
       const gapEth    = (target - floor).toFixed(4);
 
-      if (floor >= target) {
+      if (floor > 0 && floor >= target) {
         alerts.push({
           type: `TARGET HIT: ${tierName}`,
           text: `Token #${h.tokenId} — floor ${floor.toFixed(4)} ETH has reached your ${tierName} target (${targetStr} ETH). You are +${pnlPct.toFixed(0)}%. List now or set a higher limit.`,
           level: 'green', time: now, icon: '🎯'
         });
-      } else if (parseFloat(gapEth) < (entry * 0.1)) {
+      } else if (floor > 0 && parseFloat(gapEth) < (entry * 0.1)) {
         /* Within 10% of entry value of hitting a target */
         alerts.push({
           type: `CLOSE TO ${tierName}`,
@@ -956,87 +944,87 @@ function buildAlerts(floor, holdings, score, verdict, stopLossPct, trend) {
    ============================================================ */
 async function fetchCollection(name, contract) {
   const wallet = getWallet();
+  setStatus('loading', name + ': fetching data...');
 
-  /* Step 1 — parallel: stats + trades + transfers + holdings + meta */
-  setStatus('loading', name + ': fetching...');
-  const [statsRaw, trades, transfers, tokenIds, meta] = await Promise.all([
-    fetchCollectionStats(contract),
-    fetchTrades(contract, 100),
-    fetchTransfers(contract, 100),
+  /* Parallel: wallet holdings + collection transfers (working endpoints) */
+  const [tokenIds, collTransfers, walletTx, supply] = await Promise.all([
     fetchHoldings(wallet, contract),
-    fetchCollectionMeta(contract)
+    fetchCollectionTransfers(contract, 200),
+    fetchWalletTransfers(wallet, contract),
+    fetchSupply(contract)
   ]);
 
-  /* Step 2 — volume from trades (more accurate than stats fields) */
-  const tradeVol = computeVolumeFromTrades(trades);
+  /* Floor price — separate call, needs its own error handling */
+  setStatus('loading', name + ': resolving floor price...');
+  let floor = await fetchFloorPrice(contract);
 
-  /* Step 3 — floor price: stats first → recent trades → listings scan */
-  let floor = statsRaw?.floor_price || 0;
-  if (floor <= 0 && trades.length > 0) {
-    const sorted = [...trades].sort((a, b) =>
-      new Date(b.block_timestamp) - new Date(a.block_timestamp));
-    const recentPrices = sorted.slice(0, 5).map(t => {
-      const raw = t.price || t.value || '0';
-      return (typeof raw === 'string' && raw.length > 10)
-        ? parseInt(raw) / 1e18 : parseFloat(raw);
-    }).filter(p => p > 0.000001);
-    if (recentPrices.length) floor = Math.min(...recentPrices);
-    logApi('floor-from-trades', 'computed', 'ok', floor.toFixed(5) + ' ETH');
-  }
-  if (floor <= 0) {
-    floor = await fetchFloorFromListings(contract);
+  /* If no floor from listings, estimate from recent sales in transfers */
+  if (floor <= 0 && collTransfers.length > 0) {
+    const recentSales = collTransfers
+      .filter(t => t.value && t.value !== '0')
+      .sort((a, b) => new Date(b.block_timestamp) - new Date(a.block_timestamp))
+      .slice(0, 10)
+      .map(t => parseInt(t.value) / 1e18)
+      .filter(p => p > 0.00001);
+    if (recentSales.length > 0) {
+      floor = Math.min(...recentSales);
+      logApi('floor-estimated', 'ok', 'from ' + recentSales.length + ' recent sales: ' + floor.toFixed(5) + ' ETH');
+    }
   }
 
-  /* Step 4 — volume figures */
-  const vol24h      = tradeVol.vol24 > 0 ? tradeVol.vol24 : (statsRaw?.volume_24h  || 0);
-  const vol7d       = tradeVol.vol7d  > 0 ? tradeVol.vol7d  : (statsRaw?.volume_7d   || 0);
-  const sales24h    = tradeVol.sales24 > 0 ? tradeVol.sales24 : (statsRaw?.sales_24h || 0);
-  const avgDayVol   = vol7d > 0 ? vol7d / 7 : (vol24h > 0 ? vol24h : 0.0001);
-  const volumeRatio = parseFloat((vol24h / avgDayVol).toFixed(2));
+  /* Volume + sales from collection transfers */
+  const vol = computeVolumeFromTransfers(collTransfers);
 
-  /* Step 5 — supply & listings */
-  const supply     = statsRaw?.total_tokens || meta.total || 1;
-  const listings   = statsRaw?.total_tokens_with_price || 0;
-  const listingPct = supply > 0 ? parseFloat(((listings / supply) * 100).toFixed(1)) : 0;
+  /* Safe volume ratio — avoid divide by zero */
+  const avgDayVol   = vol.vol7d > 0 ? vol.vol7d / 7 : (vol.vol24 > 0 ? vol.vol24 : 0.0001);
+  const volumeRatio = parseFloat((vol.vol24 / avgDayVol).toFixed(2));
 
-  /* Step 6 — buyer/seller analysis */
+  /* Listings = NFTs with a price in the collection (rough proxy from total / supply) */
+  const listings   = 0;  /* Moralis free tier doesn't expose this directly */
+  const listingPct = 0;
+
+  /* Buyer / seller analysis */
   const ZERO = '0x0000000000000000000000000000000000000000';
-  const buyers = new Set();
-  const sellers = new Set();
+  const buyers     = new Set();
+  const sellers    = new Set();
   const buyerCount = {};
-  for (const t of transfers) {
+  for (const t of collTransfers) {
     const to   = t.to_address?.toLowerCase();
     const from = t.from_address?.toLowerCase();
     if (to   && to   !== ZERO) { buyers.add(to);   buyerCount[to] = (buyerCount[to] || 0) + 1; }
     if (from && from !== ZERO)   sellers.add(from);
   }
-  const uniqueBuyers      = buyers.size;
-  const buyerSellerRatio  = sellers.size > 0 ? parseFloat((buyers.size / sellers.size).toFixed(2)) : 1;
-  const totalTx           = transfers.length || 1;
-  const topBuyerPct       = Object.values(buyerCount).length ? Math.max(...Object.values(buyerCount)) / totalTx * 100 : 0;
+  const uniqueBuyers        = buyers.size;
+  const buyerSellerRatio    = sellers.size > 0 ? parseFloat((buyers.size / sellers.size).toFixed(2)) : 1;
+  const topBuyerPct         = Object.values(buyerCount).length
+    ? Math.max(...Object.values(buyerCount)) / (collTransfers.length || 1) * 100 : 0;
   const holderConcentration = parseFloat(topBuyerPct.toFixed(1));
 
-  /* Step 7 — entry prices (sequential to avoid Moralis rate-limits) */
+  /* Entry prices — resolved from wallet transfer history (no per-token API call needed) */
   setStatus('loading', name + ': resolving positions...');
-  const holdings = [];
-  for (const tid of tokenIds) {
-    const entry = await fetchEntryPrice(wallet, contract, tid, transfers);
-    holdings.push({ tokenId: tid, ...entry });
-  }
+  const holdings = tokenIds.map(tid => ({
+    tokenId: tid,
+    ...resolveEntryPrice(wallet, tid, walletTx)
+  }));
 
-  /* Step 8 — price trend */
-  const floorTrend = buildFloorTrend(trades, transfers);
+  /* Price trend */
+  const floorTrend = buildPriceTrend(collTransfers);
 
   const d = {
     name, contract, floor,
-    vol24h: vol24h.toFixed(5), volumeRatio, sales24h,
-    listings, supply, listingPct, uniqueBuyers, buyerSellerRatio,
-    holderConcentration, holdings, floorTrend,
+    vol24h: vol.vol24.toFixed(5),
+    vol7d:  vol.vol7d.toFixed(5),
+    sales24h: vol.sales24, sales7d: vol.sales7d,
+    volumeRatio, listings, supply, listingPct,
+    uniqueBuyers, buyerSellerRatio, holderConcentration,
+    holdings, floorTrend,
     dataQuality: {
-      hasStats: !!statsRaw,
-      hasTrades: trades.length > 0,
-      hasTransfers: transfers.length > 0,
-      floorSource: statsRaw?.floor_price > 0 ? 'stats API' : trades.length > 0 ? 'recent trades' : 'listings scan'
+      collTxCount:  collTransfers.length,
+      walletTxCount: walletTx.length,
+      floorSource:  floor > 0
+        ? (collTransfers.length > 0 ? 'recent sales' : 'listings')
+        : 'unavailable',
+      hasFloor: floor > 0
     }
   };
 
@@ -1411,9 +1399,12 @@ function renderDebugLog() {
   const el = document.getElementById('debug-log');
   if (!apiLog.length) { el.innerHTML = 'No API calls recorded yet.'; return; }
   el.innerHTML = apiLog.map(e => {
-    const ok = e.status === 'ok';
-    const color = ok ? 'var(--green)' : 'var(--red)';
-    return `<div><span style="color:${color}">[${e.status}]</span> <span style="color:var(--blue)">${e.label}</span> ${e.note ? '— ' + e.note : ''} <span style="color:var(--muted)">${e.t}</span></div>`;
+    const ok = e.status === 'ok' || e.status.startsWith('ok');
+    const color = ok ? 'var(--green)' : e.status.startsWith('fail') ? 'var(--red)' : 'var(--amber)';
+    return '<div><span style="color:' + color + '">[' + e.status + ']</span> '
+      + '<span style="color:var(--blue)">' + e.label + '</span>'
+      + (e.note ? ' — ' + e.note : '')
+      + ' <span style="color:var(--muted)">' + e.t + '</span></div>';
   }).join('');
   el.scrollTop = el.scrollHeight;
 }
