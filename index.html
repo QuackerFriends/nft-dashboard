@@ -396,6 +396,15 @@ async function fetchFloor(contract) {
     return floors.length ? Math.min(...floors) : 0;
   } catch { return 0; }
 }
+  
+  function salesAcceleration(transfers) {
+  const now = Date.now();
+  const last1h = transfers.filter(t =>  now - new Date(t.block_timestamp).getTime()      < 3600000 ).length;
+  const prev6h = transfers.filter(t => {
+  const age =     now - new Date(t.block_timestamp).getTime();
+    return age >= 3600000 &&  age < 21600000; }).length;
+  const avgPrev = prev6h / 5 || 1;
+  return parseFloat(  (last1h / avgPrev).toFixed(2)  );}
 
 async function fetchStats(contract) {
   try { return await api(`${BASE}/nft/${contract}/stats`, {chain:'eth'}); }
@@ -408,6 +417,10 @@ async function fetchTransfers(contract) {
     return d.result || [];
   } catch { return []; }
 }
+  async function fetchCollectionTransfers(contract) {  try {const d = await api(`${BASE}/nft/${contract}/transfers`,  {   chain: 'eth',    limit: 100     } );
+    return d.result || [];
+  } catch {
+  return [];  }}
 
 async function fetchHoldings(wallet, contract) {
   try {
@@ -456,7 +469,9 @@ function scoreSignal(d) {
   if (s >= 20)       { score += 1; reasons.push(['High sales velocity', 1, 'buy']); }
   else if (s < 3)    { score -= 1; reasons.push(['Low sales velocity', -1, 'sell']); }
   else                { reasons.push(['Sales velocity ok', 0, 'neutral']); }
-
+const accel = d.acceleration || 0; if (accel >= 2) { score += 2;reasons.push([ 'Momentum accelerating',  2,'buy' ]);} 
+else if (accel <= 0.5) {  score -= 1; reasons.push([ 'Momentum slowing',-1,'sell' ]);} else { reasons.push(['Momentum stable',0, 'neutral' ]);}
+  
   const verdict = score >= 4 ? 'BUY SIGNAL' : score <= -3 ? 'EXIT RISK' : 'HOLD / WATCH';
   return { score, verdict, reasons };
 }
@@ -512,18 +527,20 @@ async function fetchCollection(name, contract) {
 
   const buyers = new Set(transfers.map(t => t.to_address).filter(Boolean));
   const supply = parseInt(stats.total_tokens || 1);
-  const listings = parseInt(stats.total_tokens_with_price || 0);
-
-  const d = {
-    name, contract, floor,
-    vol24h: vol24h.toFixed(4),
-    volumeRatio: avgDay ? parseFloat((vol24h / avgDay).toFixed(2)) : 0,
-    sales24h: parseInt(stats.sales_24h || 0),
-    listings, supply,
-    listingPct: parseFloat(((listings / supply) * 100).toFixed(1)),
-    uniqueBuyers: buyers.size,
-    holdings,
-  };
+  const listings = parseInt(stats.total_tokens_with_price || 0);  
+const transfers =  await fetchCollectionTransfers(contract);
+const acceleration = salesAcceleration(transfers);
+const d = {
+  name, contract, floor,
+  vol24h: vol24h.toFixed(4),
+  volumeRatio: avgDay ? parseFloat((vol24h / avgDay).toFixed(2)) : 0,
+  sales24h: parseInt(stats.sales_24h || 0),
+  listings, supply,
+  listingPct: parseFloat(((listings / supply) * 100).toFixed(1)),
+  uniqueBuyers: buyers.size,
+  holdings,
+  acceleration,
+};
 
   const { score, verdict, reasons } = scoreSignal(d);
   const alerts = buildAlerts(floor, holdings, score, getStopLoss());
