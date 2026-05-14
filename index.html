@@ -126,24 +126,6 @@ body::after {
   font-family: var(--mono); margin-top: 1rem; display: none;
 }
 
-/* wallet scan progress */
-.scan-progress {
-  background: var(--surface2); border: 1px solid var(--border);
-  border-radius: 10px; padding: 12px 16px; margin-top: 1rem;
-  font-family: var(--mono); font-size: 11px; color: var(--dim); display: none;
-  line-height: 1.8;
-}
-.scan-progress .found-collections {
-  display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px;
-}
-.collection-pill {
-  padding: 3px 10px; border-radius: 20px;
-  background: var(--surface3); border: 1px solid var(--border2);
-  font-size: 10px; font-family: var(--mono); color: var(--dim);
-}
-.collection-pill.loading { border-color: rgba(255,170,0,0.3); color: var(--amber); }
-.collection-pill.done { border-color: rgba(5,226,138,0.3); color: var(--green); }
-.collection-pill.error { border-color: rgba(255,62,90,0.3); color: var(--red); }
 
 .tabs { display: flex; gap: 4px; margin-bottom: 1.5rem; flex-wrap: wrap; }
 .tab {
@@ -236,6 +218,51 @@ body::after {
 .nft-thumb { width: 36px; height: 36px; border-radius: 6px; object-fit: cover; background: var(--surface3); flex-shrink: 0; }
 .nft-thumb-placeholder { width: 36px; height: 36px; border-radius: 6px; background: var(--surface3); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 14px; }
 
+/* Collection selector */
+.selector-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 1.5rem 1.75rem;
+  margin-bottom: 2rem;
+}
+.selector-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 1.25rem; flex-wrap: wrap; gap: .75rem;
+}
+.selector-title { font-family: var(--mono); font-size: 10px; letter-spacing: .18em; color: var(--muted); text-transform: uppercase; }
+.selector-actions { display: flex; gap: 8px; }
+.selector-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px;
+  margin-bottom: 1.25rem;
+}
+.selector-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 13px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+  user-select: none;
+}
+.selector-item:hover { border-color: var(--border2); background: var(--surface3); }
+.selector-item.selected { border-color: rgba(5,226,138,0.4); background: var(--green-dim); }
+.selector-check {
+  width: 16px; height: 16px; border-radius: 4px;
+  border: 1px solid var(--border2); background: var(--surface3);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; font-size: 10px; transition: all .15s;
+}
+.selector-item.selected .selector-check { background: var(--green); border-color: var(--green); color: #000; }
+.selector-name { font-family: var(--mono); font-size: 12px; color: var(--text); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.selector-count { font-family: var(--mono); font-size: 10px; color: var(--muted); flex-shrink: 0; }
+.selector-footer { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .75rem; }
+.selector-summary { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+.selector-summary strong { color: var(--green); }
+
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: var(--bg); }
 ::-webkit-scrollbar-thumb { background: var(--surface3); border-radius: 2px; }
@@ -248,16 +275,20 @@ body::after {
     <div class="header-left">
       <div class="logo"><span class="logo-diamond"></span>NFT SIGNAL</div>
       <h1>Signal Dashboard</h1>
-      <div class="header-sub">auto-scans your wallet — buy / hold / exit signals via Moralis</div>
+      <div class="header-sub">scan your wallet, pick collections, get signals</div>
     </div>
     <div class="header-right">
       <div class="status-pill">
         <div class="status-dot" id="status-dot"></div>
         <span id="status-text">Not connected</span>
       </div>
-      <button class="btn btn-primary" id="refresh-btn" onclick="fetchAll()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 4v5h5M20 20v-5h-5M4 9a9 9 0 0115 0M20 15a9 9 0 01-15 0"/></svg>
+      <button class="btn" id="scan-btn" onclick="scanWallet()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
         Scan Wallet
+      </button>
+      <button class="btn btn-primary" id="analyze-btn" onclick="analyzeSelected()" style="display:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 4v5h5M20 20v-5h-5M4 9a9 9 0 0115 0M20 15a9 9 0 01-15 0"/></svg>
+        Analyze Selected
       </button>
     </div>
   </div>
@@ -286,7 +317,6 @@ body::after {
       </div>
     </div>
     <div class="warning-banner" id="warning-banner"></div>
-    <div id="scan-progress" class="scan-progress"></div>
     <div style="margin-top:.75rem;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
       <button class="btn" onclick="toggleDebug()" style="font-size:11px;padding:6px 12px">Show API debug log</button>
     </div>
@@ -295,12 +325,31 @@ body::after {
     </div>
   </div>
 
+  <!-- Collection selector — shown after wallet scan -->
+  <div class="selector-panel" id="selector-panel" style="display:none">
+    <div class="selector-header">
+      <div class="selector-title">Select Collections to Analyze</div>
+      <div class="selector-actions">
+        <button class="btn" onclick="selectAll()" style="font-size:11px;padding:6px 12px">Select All</button>
+        <button class="btn" onclick="selectNone()" style="font-size:11px;padding:6px 12px">Clear</button>
+      </div>
+    </div>
+    <div class="selector-grid" id="selector-grid"></div>
+    <div class="selector-footer">
+      <div class="selector-summary" id="selector-summary">0 selected</div>
+      <button class="btn btn-primary" onclick="analyzeSelected()" id="analyze-btn-2">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:14px;height:14px"><path d="M4 4v5h5M20 20v-5h-5M4 9a9 9 0 0115 0M20 15a9 9 0 01-15 0"/></svg>
+        Analyze Selected
+      </button>
+    </div>
+  </div>
+
   <div class="tabs" id="tabs"></div>
 
   <div id="dashboard">
     <div class="empty">
       <div class="empty-diamond"></div>
-      <p>Enter your Moralis API key above<br>and press Scan Wallet to auto-detect your NFTs.</p>
+      <p>Enter your Moralis API key above<br>and press Scan Wallet to see your collections.</p>
     </div>
   </div>
 
@@ -314,11 +363,11 @@ body::after {
 const PROFIT_TIERS = { '1.5x': 1.5, '2x': 2.0, '4x': 4.0 };
 const BASE = 'https://deep-index.moralis.io/api/v2.2';
 
-// Spam patterns — collections matching these are skipped
 const SPAM_KEYWORDS = ['free', 'claim', 'airdrop', 'visit', 'reward', '.com', '.io', '.xyz', 'voucher', 'gift'];
 
 let state = {};
-let collections = {}; // { name: contract } — auto-populated from wallet scan
+let collections = {};   // { name: { contract, count } } — all discovered
+let selected = new Set(); // names chosen by user
 let activeTab = null;
 
 /* ============================================================
@@ -882,95 +931,146 @@ async function fetchCollection(name, contract) {
 }
 
 /* ============================================================
-   MAIN FETCH — scan wallet then fetch each collection
+   STEP 1 — SCAN WALLET (just discover collections, no signal fetch)
    ============================================================ */
-async function fetchAll() {
+async function scanWallet() {
   const key = getKey();
   if (!key) { showWarning('Please paste your Moralis API key first.'); return; }
   const wallet = getWallet();
   if (!wallet || wallet === '0x') { showWarning('Please enter a valid wallet address.'); return; }
 
-  const btn = document.getElementById('refresh-btn');
+  const btn = document.getElementById('scan-btn');
   btn.disabled = true;
+  btn.textContent = 'Scanning...';
   setStatus('loading', 'Scanning wallet...');
   apiLog.length = 0;
+  state = {};
+  selected.clear();
 
+  document.getElementById('selector-panel').style.display = 'none';
+  document.getElementById('analyze-btn').style.display = 'none';
+  document.getElementById('tabs').innerHTML = '';
   document.getElementById('dashboard').innerHTML = `
     <div class="loading">
       <div class="loading-text">SCANNING WALLET...</div>
-      <div class="loading-sub">Auto-detecting your NFT collections</div>
+      <div class="loading-sub">Finding your NFT collections — just a sec</div>
     </div>`;
 
-  // Step 1: discover collections
   const discovered = await scanWalletCollections(wallet);
+
+  btn.disabled = false;
+  btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:14px;height:14px"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg> Scan Wallet`;
 
   if (discovered.length === 0) {
     document.getElementById('dashboard').innerHTML = `
       <div class="empty"><div class="empty-diamond"></div>
-      <p>No NFT collections found in this wallet,<br>or API key doesn't have access.<br>Check the debug log.</p></div>`;
+      <p>No NFT collections found in this wallet.<br>Check your API key and try again.</p></div>`;
     setStatus('error', 'No NFTs found');
-    btn.disabled = false;
     return;
   }
 
-  // Build collections map
+  // Build collections map { name: { contract, count } }
   collections = {};
   for (const c of discovered) {
-    const name = c.name || c.token_address.slice(0, 6) + '...' + c.token_address.slice(-4);
-    collections[name] = c.token_address;
+    const name = c.name || (c.token_address.slice(0, 6) + '...' + c.token_address.slice(-4));
+    collections[name] = { contract: c.token_address, count: c.count || 0 };
   }
 
-  // Show scan progress
-  showScanProgress(Object.keys(collections));
+  setStatus('live', discovered.length + ' collections found');
+  renderSelector();
 
-  if (!activeTab || !collections[activeTab]) activeTab = Object.keys(collections)[0];
+  document.getElementById('dashboard').innerHTML = `
+    <div class="empty">
+      <div class="empty-diamond"></div>
+      <p>Found ${discovered.length} collection(s) above.<br>Tick the ones you want to analyze and press Analyze Selected.</p>
+    </div>`;
+  renderDebugLog();
+}
+
+/* ============================================================
+   RENDER COLLECTION SELECTOR
+   ============================================================ */
+function renderSelector() {
+  const panel = document.getElementById('selector-panel');
+  const grid  = document.getElementById('selector-grid');
+  panel.style.display = 'block';
+
+  grid.innerHTML = Object.entries(collections).map(([name, info]) => {
+    const isSelected = selected.has(name);
+    return `<div class="selector-item ${isSelected ? 'selected' : ''}" onclick="toggleSelect(${JSON.stringify(name)})">
+      <div class="selector-check">${isSelected ? '✓' : ''}</div>
+      <div class="selector-name" title="${name}">${name}</div>
+      ${info.count > 0 ? `<div class="selector-count">${info.count} held</div>` : ''}
+    </div>`;
+  }).join('');
+
+  updateSelectorSummary();
+}
+
+function toggleSelect(name) {
+  if (selected.has(name)) selected.delete(name);
+  else selected.add(name);
+  renderSelector();
+}
+
+function selectAll()  { selected = new Set(Object.keys(collections)); renderSelector(); }
+function selectNone() { selected.clear(); renderSelector(); }
+
+function updateSelectorSummary() {
+  const n = selected.size;
+  const total = Object.keys(collections).length;
+  document.getElementById('selector-summary').innerHTML =
+    `<strong>${n}</strong> of ${total} selected` +
+    (n > 0 ? ` — approx <strong>${n * 5}</strong> API calls` : '');
+  const btn2 = document.getElementById('analyze-btn-2');
+  if (btn2) btn2.disabled = n === 0;
+}
+
+/* ============================================================
+   STEP 2 — ANALYZE SELECTED COLLECTIONS
+   ============================================================ */
+async function analyzeSelected() {
+  if (selected.size === 0) { showWarning('Please select at least one collection.'); return; }
+
+  const analyzeBtn  = document.getElementById('analyze-btn');
+  const analyzeBtn2 = document.getElementById('analyze-btn-2');
+  if (analyzeBtn)  { analyzeBtn.disabled = true; }
+  if (analyzeBtn2) { analyzeBtn2.disabled = true; analyzeBtn2.textContent = 'Analyzing...'; }
+
+  setStatus('loading', 'Fetching signals...');
+  document.getElementById('tabs').innerHTML = '';
   document.getElementById('dashboard').innerHTML = `
     <div class="loading">
       <div class="loading-text">FETCHING SIGNALS...</div>
-      <div class="loading-sub">Analyzing ${Object.keys(collections).length} collection(s) — this may take a moment</div>
+      <div class="loading-sub">Analyzing ${selected.size} collection(s) — this may take a moment</div>
     </div>`;
 
-  // Step 2: fetch each collection (sequential to avoid rate limits)
   const results = {};
-  for (const [name, contract] of Object.entries(collections)) {
+  for (const name of selected) {
+    const info = collections[name];
+    if (!info) continue;
     try {
-      results[name] = await fetchCollection(name, contract);
+      results[name] = await fetchCollection(name, info.contract);
     } catch(e) {
       results[name] = { error: e.message, name };
-      updateCollectionPill(name, 'error');
     }
-    // Small delay between collections to be nice to rate limits
     await new Promise(r => setTimeout(r, 300));
   }
 
   state = results;
+  if (!activeTab || !state[activeTab]) activeTab = [...selected][0];
   renderTabs();
   renderDashboard(activeTab);
-  setStatus('live', 'Live · ' + Object.keys(collections).length + ' collections');
+  setStatus('live', 'Live · ' + selected.size + ' analyzed');
   document.getElementById('last-updated').textContent = 'Last refreshed: ' + new Date().toLocaleString();
   renderDebugLog();
-  btn.disabled = false;
-}
 
-/* ============================================================
-   SCAN PROGRESS UI
-   ============================================================ */
-function showScanProgress(names) {
-  const el = document.getElementById('scan-progress');
-  el.style.display = 'block';
-  el.innerHTML = '<span style="color:var(--green)">Found ' + names.length + ' collection(s):</span>'
-    + '<div class="found-collections">'
-    + names.map(n => `<span class="collection-pill" id="pill-${slugify(n)}">${n}</span>`).join('')
-    + '</div>';
-}
-
-function updateCollectionPill(name, status) {
-  const el = document.getElementById('pill-' + slugify(name));
-  if (!el) return;
-  el.className = 'collection-pill ' + status;
+  if (analyzeBtn)  { analyzeBtn.disabled = false; }
+  if (analyzeBtn2) { analyzeBtn2.disabled = false; analyzeBtn2.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:14px;height:14px"><path d="M4 4v5h5M20 20v-5h-5M4 9a9 9 0 0115 0M20 15a9 9 0 01-15 0"/></svg> Analyze Selected`; }
 }
 
 function slugify(s) { return s.replace(/[^a-zA-Z0-9]/g, '_'); }
+function updateCollectionPill(name, status) { /* no-op, selector handles progress */ }
 
 function showWarning(msg) {
   const el = document.getElementById('warning-banner');
