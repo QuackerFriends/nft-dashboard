@@ -989,6 +989,8 @@ async function scanWallet() {
 
 /* ============================================================
    RENDER COLLECTION SELECTOR
+   Uses data attributes + event delegation to avoid JSON string
+   escaping bugs with inline onclick handlers.
    ============================================================ */
 function renderSelector() {
   const panel = document.getElementById('selector-panel');
@@ -997,24 +999,53 @@ function renderSelector() {
 
   grid.innerHTML = Object.entries(collections).map(([name, info]) => {
     const isSelected = selected.has(name);
-    return `<div class="selector-item ${isSelected ? 'selected' : ''}" onclick="toggleSelect(${JSON.stringify(name)})">
-      <div class="selector-check">${isSelected ? '✓' : ''}</div>
-      <div class="selector-name" title="${name}">${name}</div>
-      ${info.count > 0 ? `<div class="selector-count">${info.count} held</div>` : ''}
+    // Encode name as a data attribute — no escaping issues
+    const escaped = name.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+    return `<div class="selector-item ${isSelected ? 'selected' : ''}" data-name="${escaped}">
+      <div class="selector-check" style="pointer-events:none">${isSelected ? '✓' : ''}</div>
+      <div class="selector-name" style="pointer-events:none" title="${escaped}">${name}</div>
+      ${info.count > 0 ? `<div class="selector-count" style="pointer-events:none">${info.count} held</div>` : ''}
     </div>`;
   }).join('');
+
+  // Single delegated listener — remove old one first to avoid stacking
+  grid.onclick = function(e) {
+    const item = e.target.closest('.selector-item');
+    if (!item) return;
+    const name = item.dataset.name;
+    if (selected.has(name)) {
+      selected.delete(name);
+      item.classList.remove('selected');
+      item.querySelector('.selector-check').textContent = '';
+    } else {
+      selected.add(name);
+      item.classList.add('selected');
+      item.querySelector('.selector-check').textContent = '✓';
+    }
+    updateSelectorSummary();
+  };
 
   updateSelectorSummary();
 }
 
-function toggleSelect(name) {
-  if (selected.has(name)) selected.delete(name);
-  else selected.add(name);
-  renderSelector();
+function selectAll() {
+  selected = new Set(Object.keys(collections));
+  // Update DOM directly without full re-render
+  document.querySelectorAll('.selector-item').forEach(el => {
+    el.classList.add('selected');
+    el.querySelector('.selector-check').textContent = '✓';
+  });
+  updateSelectorSummary();
 }
 
-function selectAll()  { selected = new Set(Object.keys(collections)); renderSelector(); }
-function selectNone() { selected.clear(); renderSelector(); }
+function selectNone() {
+  selected.clear();
+  document.querySelectorAll('.selector-item').forEach(el => {
+    el.classList.remove('selected');
+    el.querySelector('.selector-check').textContent = '';
+  });
+  updateSelectorSummary();
+}
 
 function updateSelectorSummary() {
   const n = selected.size;
