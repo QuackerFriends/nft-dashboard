@@ -233,20 +233,21 @@ body::after {
 .selector-title { font-family: var(--mono); font-size: 10px; letter-spacing: .18em; color: var(--muted); text-transform: uppercase; }
 .selector-actions { display: flex; gap: 8px; }
 .selector-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 1.25rem;
 }
 .selector-item {
-  display: flex; align-items: center; gap: 10px;
-  padding: 10px 13px;
-  border-radius: 10px;
-  border: 1px solid var(--border);
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border2);
   background: var(--surface2);
   cursor: pointer;
   transition: border-color .15s, background .15s;
   user-select: none;
+  flex-shrink: 0;
 }
 .selector-item:hover { border-color: var(--border2); background: var(--surface3); }
 .selector-item.selected { border-color: rgba(5,226,138,0.4); background: var(--green-dim); }
@@ -744,13 +745,13 @@ function scoreSignal(d) {
   else               { score -= 2; reasons.push(['No sales today',              -2, 'sell', 'Dead market — exit risk']); }
 
   // 3. Floor trend from recent trades (weight 2)
-  const trend = d.floorTrend || [];
+  const trend = (d.floorTrend || []).filter(t => typeof t.avg === 'number' && !isNaN(t.avg) && t.avg > 0);
   if (trend.length >= 3) {
     const first = trend.slice(0, Math.ceil(trend.length / 2));
     const last  = trend.slice(Math.ceil(trend.length / 2));
     const avgFirst = first.reduce((a, b) => a + b.avg, 0) / first.length;
     const avgLast  = last.reduce((a, b) => a + b.avg, 0) / last.length;
-    const trendPct = ((avgLast - avgFirst) / avgFirst) * 100;
+    const trendPct = avgFirst > 0 ? ((avgLast - avgFirst) / avgFirst) * 100 : 0;
     if      (trendPct >= 10)  { score += 2; reasons.push([`Sale price up (+${trendPct.toFixed(0)}%)`,   +2, 'buy',  'Rising momentum']); }
     else if (trendPct >= 3)   { score += 1; reasons.push([`Sale price slightly up (+${trendPct.toFixed(0)}%)`, +1, 'buy',  'Mild uptrend']); }
     else if (trendPct >= -5)  {             reasons.push([`Sale price flat (${trendPct.toFixed(0)}%)`,   0, 'neutral','No clear trend']); }
@@ -884,7 +885,11 @@ async function fetchCollection(name, contract) {
     fetchWalletTransfers(wallet, contract)
   ]);
 
-  const { vol24h, vol7d, sales24h, sales7d } = computeVolumeFromTrades(trades);
+  const volData = computeVolumeFromTrades(Array.isArray(trades) ? trades : []);
+  const vol24h = volData.vol24h || 0;
+  const vol7d  = volData.vol7d  || 0;
+  const sales24h = volData.sales24h || 0;
+  const sales7d  = volData.sales7d  || 0;
   const avgDayVol   = vol7d > 0 ? vol7d / 7 : (vol24h > 0 ? vol24h : 0.0001);
   const volumeRatio = parseFloat((vol24h / avgDayVol).toFixed(2));
 
@@ -908,19 +913,21 @@ async function fetchCollection(name, contract) {
 
   const floorTrend = buildPriceTrend(trades);
 
+  const safeFloor = (typeof floorResult.price === 'number' && !isNaN(floorResult.price)) ? floorResult.price : 0;
   const d = {
     name, contract,
-    floor: floorResult.price,
-    floorSource: floorResult.source,
+    floor: safeFloor,
+    floorSource: floorResult.source || 'unavailable',
     vol24h: vol24h.toFixed(5),
     vol7d: vol7d.toFixed(5),
     sales24h, sales7d,
-    volumeRatio,
-    uniqueBuyers, buyerSellerRatio,
-    holderConcentration: parseFloat(topPct.toFixed(1)),
+    volumeRatio: isNaN(volumeRatio) ? 0 : volumeRatio,
+    uniqueBuyers: uniqueBuyers || 0,
+    buyerSellerRatio: isNaN(buyerSellerRatio) ? 1 : buyerSellerRatio,
+    holderConcentration: isNaN(topPct) ? 0 : parseFloat(topPct.toFixed(1)),
     holdings: holdingsWithPrices,
     floorTrend,
-    totalTrades: trades.length
+    totalTrades: Array.isArray(trades) ? trades.length : 0
   };
 
   const { score, verdict, reasons } = scoreSignal(d);
@@ -1259,10 +1266,10 @@ function renderDashboard(name) {
     : `<div style="color:var(--muted);font-size:12px;font-family:var(--mono);padding:.5rem 0">You don't hold any ${name} NFTs in this wallet.</div>`;
 
   // Trend chart
-  const trend = d.floorTrend || [];
+  const trend = (d.floorTrend || []).filter(t => typeof t.avg === 'number' && !isNaN(t.avg) && t.avg > 0);
   let trendHTML = '';
   if (trend.length >= 2) {
-    const maxAvg = Math.max(...trend.map(t => t.avg));
+    const maxAvg = Math.max(...trend.map(t => t.avg)) || 1;
     trendHTML = `
       <div style="margin-top:.75rem">
         <div style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-bottom:6px">RECENT SALE PRICE TREND (7d)</div>
