@@ -541,12 +541,19 @@ async function fetchFloorPrice(contract) {
    /nft/{address}/price gives aggregated stats.
    ============================================================ */
 async function fetchSaleData(contract) {
-  // Use trades endpoint for accurate per-sale data
   try {
     const url = `${BASE}/nft/${contract}/trades`;
     const d = await apiGet(url, { chain: 'eth', limit: 100 });
     const trades = d.result || [];
-    logApi('sale-trades', 'ok', trades.length + ' trades');
+    // Log the first trade's fields to debug log so we can verify timestamp/price field names
+    if (trades.length > 0) {
+      const sample = trades[0];
+      const tsField = sample.block_timestamp || sample.transaction_date || sample.created_at || 'none';
+      const priceField = sample.price_formatted || sample.price || 'none';
+      logApi('sale-trades', 'ok', trades.length + ' trades | ts=' + tsField + ' | price=' + priceField);
+    } else {
+      logApi('sale-trades', 'ok', '0 trades returned');
+    }
     return trades;
   } catch(e) {
     logApi('sale-trades', 'fail:' + e.message, '');
@@ -679,6 +686,24 @@ function resolveEntryPrice(wallet, tokenId, walletTx) {
 }
 
 /* ============================================================
+   SAFE UTC TIMESTAMP PARSER
+   Moralis returns timestamps like "2024-05-14T16:00:15" with no
+   timezone suffix. JS treats these as LOCAL time which causes
+   trades to fall outside the 24h window depending on timezone.
+   Force UTC by appending Z if missing.
+   ============================================================ */
+function parseUTC(ts) {
+  if (!ts) return 0;
+  const s = String(ts).trim();
+  // Already has timezone info
+  if (s.endsWith('Z') || s.includes('+') || (s.length > 19 && s[19] === '.')) {
+    return new Date(s).getTime();
+  }
+  // No timezone — force UTC
+  return new Date(s + 'Z').getTime();
+}
+
+/* ============================================================
    VOLUME COMPUTATION FROM TRADES
    ============================================================ */
 function computeVolumeFromTrades(trades) {
@@ -687,11 +712,16 @@ function computeVolumeFromTrades(trades) {
   const ms7d = ms24 * 7;
   let vol24 = 0, vol7d = 0, sales24 = 0, sales7d = 0;
   for (const t of trades) {
-    const raw = t.price || t.price_formatted || '0';
-    const parsed = parseFloat(raw);
+    // Price: NFT trades endpoint uses price_token_address + price
+    // Try all known field names across Moralis endpoint versions
+    const rawPrice = t.price_formatted || t.price || '0';
+    const parsed = parseFloat(rawPrice);
     const eth = parsed > 1e10 ? parsed / 1e18 : parsed;
     if (eth < 0.000001) continue;
-    const ts = new Date(t.block_timestamp || t.transaction_date || 0).getTime();
+    // Timestamp: always force UTC to avoid local timezone offset bugs
+    const tsStr = t.block_timestamp || t.transaction_date || t.created_at || '';
+    const ts = parseUTC(tsStr);
+    if (!ts) continue;
     if (ts >= now - ms24) { vol24 += eth; sales24++; }
     if (ts >= now - ms7d) { vol7d += eth; sales7d++; }
   }
@@ -704,13 +734,16 @@ function computeVolumeFromTrades(trades) {
 function buildPriceTrend(trades) {
   const byDay = {};
   for (const t of trades) {
-    const raw = t.price || t.price_formatted || '0';
-    const parsed = parseFloat(raw);
+    const rawPrice = t.price_formatted || t.price || '0';
+    const parsed = parseFloat(rawPrice);
     const eth = parsed > 1e10 ? parsed / 1e18 : parsed;
     if (eth < 0.000001) continue;
-    const ts = t.block_timestamp || t.transaction_date || '';
-    const day = ts.slice(0, 10);
-    if (!day) continue;
+    const tsStr = t.block_timestamp || t.transaction_date || t.created_at || '';
+    if (!tsStr) continue;
+    // Normalize to UTC date string YYYY-MM-DD
+    const tsMs = parseUTC(tsStr);
+    if (!tsMs) continue;
+    const day = new Date(tsMs).toISOString().slice(0, 10);
     if (!byDay[day]) byDay[day] = [];
     byDay[day].push(eth);
   }
